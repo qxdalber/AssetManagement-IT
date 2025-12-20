@@ -85,8 +85,6 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
       skipEmptyLines: true,
       complete: (results) => {
         const assets: Asset[] = [];
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const errors: string[] = [];
 
         results.data.forEach((row: any) => {
           // Normalize keys to lowercase to be more forgiving
