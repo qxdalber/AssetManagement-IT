@@ -1,10 +1,11 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Asset, AssetStatus } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 // Parse unstructured text into structured asset data
 export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[]> => {
+  // Fix: Create instance right before API call to ensure latest API key is used
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -52,7 +53,9 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
 // Generate a summary report of the assets
 export const generateAssetReport = async (assets: Asset[]): Promise<string> => {
   if (assets.length === 0) return "No assets to analyze.";
-
+  
+  // Fix: Create instance right before API call to ensure latest API key is used
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const dataStr = JSON.stringify(assets.map(a => ({
       model: a.model,

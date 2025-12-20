@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
@@ -27,7 +28,7 @@ function App() {
     } catch (error) {
       console.error(error);
       setIsConnected(false);
-      showNotification('Failed to connect to AWS S3. Check environment variables.', 'error');
+      showNotification('S3 Connection failed. Verify VITE_ASSET_S3 variables.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -44,10 +45,10 @@ function App() {
       await addAssets(newAssets);
       setAssets(prev => [...prev, ...newAssets]);
       setView('list');
-      showNotification(`Successfully saved ${newAssets.length} asset(s) to S3`, 'success');
+      showNotification(`Saved ${newAssets.length} asset(s) to S3`, 'success');
     } catch (error) {
       console.error(error);
-      showNotification('Failed to save to S3. Check CORS or Permissions.', 'error');
+      showNotification('Save failed. Check S3 CORS/Permissions.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -61,10 +62,10 @@ function App() {
         const assetsToDelete = assets.filter(a => ids.includes(a.id));
         await deleteAssets(assetsToDelete);
         setAssets(prev => prev.filter(a => !ids.includes(a.id)));
-        showNotification('Assets deleted from S3', 'success');
+        showNotification('Assets removed from S3', 'success');
       } catch (error) {
         console.error(error);
-        showNotification('Delete failed. Check S3 permissions.', 'error');
+        showNotification('Delete failed.', 'error');
       } finally {
         setIsSaving(false);
       }
@@ -75,7 +76,7 @@ function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
         <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4"></div>
-        <p className="text-slate-500 font-medium">Initializing AWS Environment...</p>
+        <p className="text-slate-500 font-medium">Initializing Cloud Environment...</p>
       </div>
     );
   }
@@ -96,7 +97,7 @@ function App() {
                 : 'bg-slate-50 text-slate-500 border-slate-200'
           }`}>
             {isConnected ? <Cloud className="h-3 w-3" /> : <CloudOff className="h-3 w-3" />}
-            {isConnected ? 'S3 Connected' : 'S3 Disconnected'}
+            {isConnected ? 'S3 Active' : 'S3 Offline'}
             {isConnected && <ShieldCheck className="h-3 w-3 ml-1" />}
           </div>
         </div>
@@ -105,7 +106,7 @@ function App() {
           <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40 flex items-center justify-center">
              <div className="bg-white px-6 py-4 rounded-lg shadow-xl flex items-center gap-3 border border-slate-200">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                <span className="font-medium text-slate-700">Synchronizing with AWS...</span>
+                <span className="font-medium text-slate-700">Syncing with AWS S3...</span>
              </div>
           </div>
         )}
@@ -123,7 +124,10 @@ function App() {
             <div className="mb-6 flex justify-between items-end">
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Live Asset Inventory</h2>
-                <p className="text-slate-500 mt-1">Real-time tracking synced with <strong>{process.env.AWS_BUCKET_NAME || 'S3 Cloud'}</strong></p>
+                <p className="text-slate-500 mt-1">
+                  {/* Fix: Use casting for import.meta to avoid TS error */}
+                  Connected to: <strong>{(import.meta as any).env.VITE_ASSET_S3_BUCKET || 'Not Found'}</strong>
+                </p>
               </div>
               <button
                 onClick={() => setView('add')}
@@ -138,7 +142,7 @@ function App() {
           <div>
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold text-slate-900">Add New Assets</h2>
-              <p className="text-slate-500 mt-1">S3-backed entry via Manual, Bulk, or Gemini AI import.</p>
+              <p className="text-slate-500 mt-1">Manual, Bulk CSV, or Gemini AI Import</p>
             </div>
             <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />
           </div>
@@ -148,9 +152,14 @@ function App() {
       <footer className="bg-white border-t border-slate-200 py-6 mt-auto">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-slate-500 text-sm">
           <div>&copy; {new Date().getFullYear()} EU_EF IT AssetTrack Portal</div>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-            Region: {process.env.AWS_REGION || 'default'}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+              {/* Fix: Use casting for import.meta to avoid TS error */}
+              Region: {(import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1'}
+            </div>
+            <div className="text-slate-300">|</div>
+            <div className="font-mono text-[10px] opacity-50">v1.1-S3-FIXED</div>
           </div>
         </div>
       </footer>

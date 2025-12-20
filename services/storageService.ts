@@ -1,11 +1,13 @@
+
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Asset, AssetStatus } from '../types';
 
-// AWS Configuration
-const REGION = process.env.AWS_REGION || 'us-east-1';
-const BUCKET = process.env.AWS_BUCKET_NAME;
-const ACCESS_KEY = process.env.AWS_ACCESS_KEY_ID;
-const SECRET_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+// Use import.meta.env with VITE_ prefix (standard for Vite applications)
+// Fix: Use casting for import.meta to avoid TS property 'env' errors
+const REGION = (import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1';
+const BUCKET = (import.meta as any).env.VITE_ASSET_S3_BUCKET;
+const ACCESS_KEY = (import.meta as any).env.VITE_ASSET_S3_ACCESS_KEY;
+const SECRET_KEY = (import.meta as any).env.VITE_ASSET_S3_SECRET_KEY;
 
 // Folder prefix for asset files
 const ASSET_PREFIX = 'assets/';
@@ -16,7 +18,8 @@ let client: S3Client | null = null;
 const getClient = () => {
   if (!client) {
     if (!ACCESS_KEY || !SECRET_KEY) {
-      throw new Error("AWS Credentials are missing");
+      console.error("Missing S3 Credentials. Expected VITE_ASSET_S3_ACCESS_KEY and VITE_ASSET_S3_SECRET_KEY");
+      throw new Error("S3 Credentials are not configured in environment variables.");
     }
     client = new S3Client({
       region: REGION,
@@ -65,7 +68,7 @@ const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
 
 export const fetchAssets = async (): Promise<Asset[]> => {
   if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) {
-    console.warn("AWS Credentials not configured. Returning empty list.");
+    console.warn("VITE_ASSET_S3 variables not found. S3 storage is disabled.");
     return [];
   }
 
@@ -98,17 +101,15 @@ export const fetchAssets = async (): Promise<Asset[]> => {
 
   } catch (e: any) {
     console.error('Failed to load asset library from S3:', e);
-    throw new Error('Could not load data from S3');
+    throw new Error('Could not connect to S3 Bucket.');
   }
 };
 
 export const addAssets = async (newAssets: Asset[]): Promise<void> => {
-  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) {
-    throw new Error("AWS Credentials not configured");
-  }
+  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
   const s3 = getClient();
 
-  // 1. Group assets by Site ID
+  // Group assets by Site ID to minimize S3 writes
   const assetsBySite = newAssets.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
@@ -116,17 +117,11 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
     return acc;
   }, {} as Record<string, Asset[]>);
 
-  // 2. Process each site independently (Read -> Append -> Write)
   const updates = Object.entries(assetsBySite).map(async ([siteId, assetsToAdd]) => {
     const fileKey = getSiteFileKey(siteId);
-    
-    // Fetch existing assets for this site
     const existingAssets = await fetchAssetsByKey(fileKey);
-    
-    // Append new assets
     const updatedAssets = [...existingAssets, ...assetsToAdd];
     
-    // Save back to S3
     const putCommand = new PutObjectCommand({
       Bucket: BUCKET,
       Key: fileKey,
@@ -141,29 +136,21 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
 };
 
 export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
-  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) {
-    throw new Error("AWS Credentials not configured");
-  }
+  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
   const s3 = getClient();
 
-  // 1. Group by Site ID to know which files to touch
   const assetsBySite = assetsToDelete.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
     acc[key].push(asset.id);
     return acc;
-  }, {} as Record<string, string[]>); // Map SiteID -> Array of AssetIDs
+  }, {} as Record<string, string[]>);
 
-  // 2. Process each site
   const updates = Object.entries(assetsBySite).map(async ([siteId, idsToDelete]) => {
     const fileKey = getSiteFileKey(siteId);
-    
     const existingAssets = await fetchAssetsByKey(fileKey);
-    
-    // Filter out deleted items
     const updatedAssets = existingAssets.filter(a => !idsToDelete.includes(a.id));
     
-    // Save back (even if empty, to maintain file existence, or we could delete the file)
     const putCommand = new PutObjectCommand({
       Bucket: BUCKET,
       Key: fileKey,
