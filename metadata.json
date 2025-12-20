@@ -1,0 +1,5 @@
+{
+  "name": "EU_EF IT AssetTrack  Portal",
+  "description": "An intelligent, open-access asset management portal powered by Gemini to track assets, serial numbers, and RMA statuses with natural language processing capabilities.",
+  "requestFramePermissions": []
+}
