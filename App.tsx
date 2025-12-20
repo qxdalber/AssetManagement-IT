@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';

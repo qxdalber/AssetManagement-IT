@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { parseAssetsFromText } from '../services/geminiService';
-import { Bot, Save, AlertCircle, CheckCircle, FileText, Upload, FileSpreadsheet, Download, X } from 'lucide-react';
+import { Bot, Save, AlertCircle, CheckCircle, Upload, FileSpreadsheet, Download, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
 
@@ -85,9 +85,10 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
       skipEmptyLines: true,
       complete: (results) => {
         const assets: Asset[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const errors: string[] = [];
 
-        results.data.forEach((row: any, index) => {
+        results.data.forEach((row: any) => {
           // Normalize keys to lowercase to be more forgiving
           const normalizedRow: Record<string, string> = {};
           Object.keys(row).forEach(key => {
