@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
-import { Asset } from './types';
-import { fetchAssets, addAssets, deleteAssets } from './services/storageService';
+import { Asset, AssetStatus } from './types';
+import { fetchAssets, addAssets, deleteAssets, updateAssetStatus } from './services/storageService';
 import { Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
 function App() {
@@ -53,6 +54,18 @@ function App() {
     }
   };
 
+  const handleUpdateAssetStatus = async (assetId: string, siteId: string, newStatus: AssetStatus) => {
+    try {
+      await updateAssetStatus(assetId, siteId, newStatus);
+      setAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: newStatus } : a));
+      showNotification('Status updated in S3', 'success');
+    } catch (error) {
+      console.error(error);
+      showNotification('Update failed.', 'error');
+      throw error; // Let the component handle local UI rollback if needed
+    }
+  };
+
   const handleDeleteAssets = async (ids: string[]) => {
     const count = ids.length;
     if (window.confirm(count === 1 ? 'Delete this asset?' : `Delete ${count} assets?`)) {
@@ -86,7 +99,6 @@ function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
-        {/* Connection Status Badge */}
         <div className="mb-4 flex justify-end">
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${
             isConnected 
@@ -124,7 +136,6 @@ function App() {
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Live Asset Inventory</h2>
                 <p className="text-slate-500 mt-1">
-                  {/* Fix: Use casting for import.meta to avoid TS error */}
                   Connected to: <strong>{(import.meta as any).env.VITE_ASSET_S3_BUCKET || 'Not Found'}</strong>
                 </p>
               </div>
@@ -135,7 +146,11 @@ function App() {
                 + Register New Asset
               </button>
             </div>
-            <AssetList assets={assets} onDelete={handleDeleteAssets} />
+            <AssetList 
+              assets={assets} 
+              onDelete={handleDeleteAssets} 
+              onUpdateStatus={handleUpdateAssetStatus}
+            />
           </div>
         ) : (
           <div>
@@ -154,11 +169,10 @@ function App() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-              {/* Fix: Use casting for import.meta to avoid TS error */}
               Region: {(import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1'}
             </div>
             <div className="text-slate-300">|</div>
-            <div className="font-mono text-[10px] opacity-50">v1.1-S3-FIXED</div>
+            <div className="font-mono text-[10px] opacity-50">v1.2-LIVE-EDIT</div>
           </div>
         </div>
       </footer>

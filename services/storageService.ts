@@ -3,16 +3,13 @@ import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } fr
 import { Asset, AssetStatus } from '../types';
 
 // Use import.meta.env with VITE_ prefix (standard for Vite applications)
-// Fix: Use casting for import.meta to avoid TS property 'env' errors
 const REGION = (import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1';
 const BUCKET = (import.meta as any).env.VITE_ASSET_S3_BUCKET;
 const ACCESS_KEY = (import.meta as any).env.VITE_ASSET_S3_ACCESS_KEY;
 const SECRET_KEY = (import.meta as any).env.VITE_ASSET_S3_SECRET_KEY;
 
-// Folder prefix for asset files
 const ASSET_PREFIX = 'assets/';
 
-// Lazy initialization of the client
 let client: S3Client | null = null;
 
 const getClient = () => {
@@ -32,13 +29,11 @@ const getClient = () => {
   return client;
 };
 
-// Helper to sanitize Site ID for filenames
 const getSiteFileKey = (siteId: string) => {
   const sanitized = siteId.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
   return `${ASSET_PREFIX}site_${sanitized}.json`;
 };
 
-// Helper to fetch data from a specific key
 const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
   try {
     const s3 = getClient();
@@ -74,8 +69,6 @@ export const fetchAssets = async (): Promise<Asset[]> => {
 
   try {
     const s3 = getClient();
-    
-    // 1. List all files in the assets/ folder
     const listCommand = new ListObjectsV2Command({
       Bucket: BUCKET,
       Prefix: ASSET_PREFIX,
@@ -88,15 +81,12 @@ export const fetchAssets = async (): Promise<Asset[]> => {
       return [];
     }
 
-    // 2. Fetch all files in parallel
     const filePromises = contents
       .map(file => file.Key)
       .filter((key): key is string => !!key)
       .map(key => fetchAssetsByKey(key));
 
     const results = await Promise.all(filePromises);
-
-    // 3. Flatten results into single array
     return results.flat();
 
   } catch (e: any) {
@@ -109,7 +99,6 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   if (!BUCKET) throw new Error("S3 Bucket name is missing.");
   const s3 = getClient();
 
-  // Group assets by Site ID to minimize S3 writes
   const assetsBySite = newAssets.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
@@ -133,6 +122,26 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   });
 
   await Promise.all(updates);
+};
+
+export const updateAssetStatus = async (assetId: string, siteId: string, newStatus: AssetStatus): Promise<void> => {
+  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
+  const s3 = getClient();
+  const fileKey = getSiteFileKey(siteId);
+  const existingAssets = await fetchAssetsByKey(fileKey);
+  
+  const updatedAssets = existingAssets.map(asset => 
+    asset.id === assetId ? { ...asset, status: newStatus } : asset
+  );
+  
+  const putCommand = new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: fileKey,
+    Body: JSON.stringify(updatedAssets),
+    ContentType: "application/json",
+  });
+
+  await s3.send(putCommand);
 };
 
 export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
