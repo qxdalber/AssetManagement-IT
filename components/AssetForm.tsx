@@ -18,7 +18,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
     model: '',
     serialNumber: '',
     siteId: '',
-    comments: '',
+    country: '',
     status: AssetStatus.Normal
   });
 
@@ -33,7 +33,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualForm.model || !manualForm.serialNumber || !manualForm.siteId) {
+    if (!manualForm.model || !manualForm.serialNumber || !manualForm.siteId || !manualForm.country) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -63,7 +63,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
           model: p.model || 'Unknown',
           serialNumber: p.serialNumber || 'Unknown',
           siteId: p.siteId || 'Unknown',
-          comments: p.comments || '',
+          country: p.country || '',
           status: (p.status as AssetStatus) || AssetStatus.Normal,
           createdAt: Date.now()
         }));
@@ -87,21 +87,18 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
         const assets: Asset[] = [];
 
         results.data.forEach((row: any) => {
-          // Normalize keys to lowercase to be more forgiving
           const normalizedRow: Record<string, string> = {};
           Object.keys(row).forEach(key => {
             normalizedRow[key.toLowerCase().trim()] = row[key];
           });
 
-          // Try to map common variations of headers
           const model = normalizedRow['model'] || normalizedRow['asset model'] || normalizedRow['product'];
           const serial = normalizedRow['serial number'] || normalizedRow['serial'] || normalizedRow['sn'] || normalizedRow['serial no'];
           const site = normalizedRow['site id'] || normalizedRow['site'] || normalizedRow['location'];
+          const country = normalizedRow['country'] || normalizedRow['nation'] || normalizedRow['origin'];
           const status = normalizedRow['status'] || normalizedRow['rma status'] || normalizedRow['rma'];
-          const comments = normalizedRow['comments'] || normalizedRow['comment'] || normalizedRow['description'] || normalizedRow['notes'];
 
           if (model && serial && site) {
-            // Validate/Map Status
             let assetStatus = AssetStatus.Normal;
             if (status) {
               const s = status.trim();
@@ -130,7 +127,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
               model: model.trim(),
               serialNumber: serial.trim(),
               siteId: site.trim(),
-              comments: comments ? comments.trim() : '',
+              country: country ? country.trim() : '',
               status: assetStatus,
               createdAt: Date.now()
             });
@@ -138,7 +135,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
         });
 
         if (assets.length === 0) {
-          setError("No valid assets found in CSV. Please check the column headers (Model, Serial Number, Site ID).");
+          setError("No valid assets found in CSV. Please check the column headers (Model, Serial Number, Site ID, Country).");
         } else {
           setBulkPreview(assets);
           setError(null);
@@ -149,14 +146,13 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
       }
     });
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const downloadTemplate = () => {
-    const csvContent = "Model,Serial Number,Site ID,Status,Comments\nCisco Catalyst 9200,FOC12345678,NYC-01,Normal,Installed in server room 3\nLenovo ThinkPad X1,PF123456,LON-HQ,RMA Requested,Screen flickering";
+    const csvContent = "Model,Serial Number,Site ID,Country,Status\nCisco Catalyst 9200,FOC12345678,NYC-01,USA,Normal\nLenovo ThinkPad X1,PF123456,LON-HQ,UK,RMA Requested";
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -245,7 +241,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Site ID *</label>
                 <input
@@ -255,6 +251,17 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                   value={manualForm.siteId}
                   onChange={e => setManualForm({...manualForm, siteId: e.target.value})}
                   placeholder="e.g. XDT3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Country *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={manualForm.country}
+                  onChange={e => setManualForm({...manualForm, country: e.target.value})}
+                  placeholder="e.g. Germany"
                 />
               </div>
               <div>
@@ -269,16 +276,6 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Comments / Description</label>
-              <textarea
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
-                value={manualForm.comments}
-                onChange={e => setManualForm({...manualForm, comments: e.target.value})}
-                placeholder="Describe the condition or reason for RMA..."
-              />
             </div>
 
             <div className="flex gap-4 pt-4">
@@ -311,7 +308,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                   </h3>
                   <p className="text-sm text-emerald-800">
                     Upload a CSV file to import multiple assets at once. 
-                    Ensure your CSV has headers like <strong>Model</strong>, <strong>Serial Number</strong>, and <strong>Site ID</strong>.
+                    Ensure your CSV has headers like <strong>Model</strong>, <strong>Serial Number</strong>, <strong>Site ID</strong>, and <strong>Country</strong>.
                   </p>
                 </div>
 
@@ -373,6 +370,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                          <th className="px-4 py-2">Model</th>
                          <th className="px-4 py-2">Serial</th>
                          <th className="px-4 py-2">Site</th>
+                         <th className="px-4 py-2">Country</th>
                          <th className="px-4 py-2">Status</th>
                        </tr>
                      </thead>
@@ -382,6 +380,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                            <td className="px-4 py-2">{asset.model}</td>
                            <td className="px-4 py-2 font-mono text-xs">{asset.serialNumber}</td>
                            <td className="px-4 py-2">{asset.siteId}</td>
+                           <td className="px-4 py-2">{asset.country}</td>
                            <td className="px-4 py-2">{asset.status}</td>
                          </tr>
                        ))}
@@ -419,7 +418,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
               </h3>
               <p className="text-sm text-purple-800">
                 Paste any unstructured text below (e.g., email threads, chat logs, or messy Excel copy-pastes). 
-                Gemini will automatically extract models, serial numbers, sites, and infer the status.
+                Gemini will automatically extract models, serial numbers, sites, countries, and infer the status.
               </p>
             </div>
 
@@ -428,7 +427,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none h-48 resize-none font-mono text-sm"
                 value={aiInput}
                 onChange={e => setAiInput(e.target.value)}
-                placeholder={`Example:\nHi team, the switch at Site LA-05 (Model: C9300-24T, SN: FCW2345L0) is eligible for RMA. \nAlso, received a new Router ISR4331 at NY-02, SN: FDO2451X, working normally.`}
+                placeholder={`Example:\nHi team, the switch at Site LA-05 (Model: C9300-24T, SN: FCW2345L0) in Germany is eligible for RMA. \nAlso, received a new Router ISR4331 at NY-02, USA, SN: FDO2451X, working normally.`}
               />
             </div>
 

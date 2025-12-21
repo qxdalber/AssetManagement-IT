@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Asset, AssetStatus } from '../types';
-import { Search, Filter, Sparkles, Trash2, Download, Loader2 } from 'lucide-react';
+import { Search, Filter, Sparkles, Trash2, Download, Loader2, Globe } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
@@ -24,7 +23,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
         asset.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         asset.siteId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        asset.comments.toLowerCase().includes(searchTerm.toLowerCase());
+        asset.country.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesStatus = statusFilter === 'All' || asset.status === statusFilter;
       
@@ -64,7 +63,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     try {
       await onUpdateStatus(asset.id, asset.siteId, newStatus);
     } catch (e) {
-      // Revert if handled elsewhere or UI is already stale
+      // Handled in App
     } finally {
       setUpdatingAssetId(null);
     }
@@ -89,13 +88,13 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   };
 
   const exportToCSV = () => {
-    const headers = ["Model", "Serial Number", "Site ID", "Status", "Comments", "Date"];
+    const headers = ["Model", "Serial Number", "Site ID", "Country", "Status", "Date"];
     const rows = filteredAssets.map(a => [
       a.model,
       a.serialNumber,
       a.siteId,
+      a.country,
       a.status,
-      `"${a.comments.replace(/"/g, '""')}"`,
       new Date(a.createdAt).toLocaleDateString()
     ]);
     
@@ -132,7 +131,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search Model, Serial, Site ID..."
+              placeholder="Search Model, Serial, Site, Country..."
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -218,9 +217,9 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 </th>
                 <th className="px-6 py-4">Model</th>
                 <th className="px-6 py-4">Serial Number</th>
-                <th className="px-6 py-4">Site ID</th>
-                <th className="px-6 py-4">Status (Click to Edit)</th>
-                <th className="px-6 py-4 w-1/4">Comments</th>
+                <th className="px-6 py-4 text-center">Site ID</th>
+                <th className="px-6 py-4 text-center">Country</th>
+                <th className="px-6 py-4">Status (Live Edit)</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -238,10 +237,16 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-900">{asset.model}</td>
                     <td className="px-6 py-4 text-slate-600 font-mono text-xs">{asset.serialNumber}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-center">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                         {asset.siteId}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5 text-slate-600">
+                        <Globe className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="font-medium">{asset.country || 'N/A'}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {updatingAssetId === asset.id ? (
@@ -270,9 +275,6 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                           </div>
                         </div>
                       )}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 max-w-xs truncate text-sm" title={asset.comments}>
-                      {asset.comments || <span className="text-slate-300 italic">No comments</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button

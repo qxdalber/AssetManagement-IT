@@ -3,7 +3,7 @@ export interface Asset {
   model: string;
   serialNumber: string;
   siteId: string;
-  comments: string;
+  country: string;
   status: AssetStatus;
   createdAt: number;
 }

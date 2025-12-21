@@ -1,8 +1,6 @@
-
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Asset, AssetStatus } from '../types';
 
-// Use import.meta.env with VITE_ prefix (standard for Vite applications)
 const REGION = (import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1';
 const BUCKET = (import.meta as any).env.VITE_ASSET_S3_BUCKET;
 const ACCESS_KEY = (import.meta as any).env.VITE_ASSET_S3_ACCESS_KEY;
@@ -48,6 +46,7 @@ const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
       const rawData = JSON.parse(str);
       return rawData.map((item: any) => ({
         ...item,
+        country: item.country || item.nation || '',
         status: item.status || item.rmaStatus || AssetStatus.Normal,
       }));
     }
