@@ -1,10 +1,14 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
-import { Asset, AssetStatus } from '../types';
+import { Asset, AssetStatus, HistoryEntry } from '../types';
 
-const REGION = (import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1';
-const BUCKET = (import.meta as any).env.VITE_ASSET_S3_BUCKET;
-const ACCESS_KEY = (import.meta as any).env.VITE_ASSET_S3_ACCESS_KEY;
-const SECRET_KEY = (import.meta as any).env.VITE_ASSET_S3_SECRET_KEY;
+const getEnv = (key: string): string | undefined => {
+  return (import.meta as any).env?.[key];
+};
+
+const REGION = getEnv('VITE_ASSET_S3_REGION') || 'us-east-1';
+const BUCKET = getEnv('VITE_ASSET_S3_BUCKET');
+const ACCESS_KEY = getEnv('VITE_ASSET_S3_ACCESS_KEY');
+const SECRET_KEY = getEnv('VITE_ASSET_S3_SECRET_KEY');
 
 const ASSET_PREFIX = 'assets/';
 
@@ -48,6 +52,7 @@ const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
         ...item,
         country: item.country || item.nation || '',
         status: item.status || item.rmaStatus || AssetStatus.Normal,
+        history: item.history || []
       }));
     }
     return [];
@@ -101,7 +106,15 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   const assetsBySite = newAssets.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
-    acc[key].push(asset);
+    acc[key].push({
+      ...asset,
+      history: asset.history || [{
+        timestamp: Date.now(),
+        field: 'Initial Registration',
+        oldValue: null,
+        newValue: 'Created'
+      }]
+    });
     return acc;
   }, {} as Record<string, Asset[]>);
 
@@ -123,15 +136,33 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   await Promise.all(updates);
 };
 
-export const updateAssetStatus = async (assetId: string, siteId: string, newStatus: AssetStatus): Promise<void> => {
+export const updateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>): Promise<void> => {
   if (!BUCKET) throw new Error("S3 Bucket name is missing.");
   const s3 = getClient();
   const fileKey = getSiteFileKey(siteId);
   const existingAssets = await fetchAssetsByKey(fileKey);
   
-  const updatedAssets = existingAssets.map(asset => 
-    asset.id === assetId ? { ...asset, status: newStatus } : asset
-  );
+  const updatedAssets = existingAssets.map(asset => {
+    if (asset.id === assetId) {
+      const newHistory: HistoryEntry[] = [...(asset.history || [])];
+      
+      // Record changes in history
+      Object.entries(updates).forEach(([key, value]) => {
+        const field = key as keyof Asset;
+        if (asset[field] !== value && key !== 'history' && key !== 'id' && key !== 'createdAt') {
+          newHistory.push({
+            timestamp: Date.now(),
+            field: key,
+            oldValue: asset[field],
+            newValue: value
+          });
+        }
+      });
+
+      return { ...asset, ...updates, history: newHistory };
+    }
+    return asset;
+  });
   
   const putCommand = new PutObjectCommand({
     Bucket: BUCKET,

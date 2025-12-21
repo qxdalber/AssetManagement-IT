@@ -1,21 +1,38 @@
-import React, { useState, useMemo } from 'react';
-import { Asset, AssetStatus } from '../types';
-import { Search, Filter, Sparkles, Trash2, Download, Loader2, Globe } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Asset, AssetStatus, HistoryEntry } from '../types';
+import { Search, Filter, Sparkles, Trash2, Download, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
   assets: Asset[];
   onDelete: (ids: string[]) => void;
-  onUpdateStatus: (assetId: string, siteId: string, newStatus: AssetStatus) => Promise<void>;
+  onUpdateAsset: (assetId: string, siteId: string, updates: Partial<Asset>) => Promise<void>;
 }
 
-export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateStatus }) => {
+export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateAsset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
+  
+  // Inline edit state
+  const [editing, setEditing] = useState<{ id: string, field: 'model' | 'serialNumber', value: string } | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Deletion Modal State
+  const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
+
+  // History Modal State
+  const [viewingHistory, setViewingHistory] = useState<Asset | null>(null);
+
+  useEffect(() => {
+    if (editing && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editing]);
 
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
@@ -61,7 +78,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     
     setUpdatingAssetId(asset.id);
     try {
-      await onUpdateStatus(asset.id, asset.siteId, newStatus);
+      await onUpdateAsset(asset.id, asset.siteId, { status: newStatus });
     } catch (e) {
       // Handled in App
     } finally {
@@ -69,9 +86,59 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     }
   };
 
-  const handleBulkDelete = () => {
-    onDelete(Array.from(selectedIds));
-    setSelectedIds(new Set()); 
+  const startEditing = (asset: Asset, field: 'model' | 'serialNumber') => {
+    setEditing({ id: asset.id, field, value: asset[field] });
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    
+    const asset = assets.find(a => a.id === editing.id);
+    if (!asset || asset[editing.field] === editing.value) {
+      setEditing(null);
+      return;
+    }
+
+    setUpdatingAssetId(asset.id);
+    const updates = { [editing.field]: editing.value };
+    setEditing(null); // Close input immediately for UX
+
+    try {
+      await onUpdateAsset(asset.id, asset.siteId, updates);
+    } catch (e) {
+      // Handled in App
+    } finally {
+      setUpdatingAssetId(null);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') setEditing(null);
+  };
+
+  const initiateSingleDelete = (asset: Asset) => {
+    setAssetsToDelete([asset]);
+  };
+
+  const initiateBulkDelete = () => {
+    const targets = assets.filter(a => selectedIds.has(a.id));
+    if (targets.length > 0) {
+      setAssetsToDelete(targets);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (assetsToDelete) {
+      const ids = assetsToDelete.map(a => a.id);
+      onDelete(ids);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+      setAssetsToDelete(null);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -124,6 +191,138 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Deletion Confirmation Modal */}
+      {assetsToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-2 bg-red-50 rounded-full">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold">Confirm Deletion</h3>
+              </div>
+              <button 
+                onClick={() => setAssetsToDelete(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <p className="text-slate-600 mb-4">
+                Are you sure you want to delete the following <span className="font-bold text-slate-900">{assetsToDelete.length}</span> asset(s)? 
+                This action is permanent and cannot be undone in S3.
+              </p>
+              
+              <div className="bg-slate-50 rounded-xl border border-slate-200 divide-y divide-slate-200 max-h-60 overflow-y-auto">
+                {assetsToDelete.map(asset => (
+                  <div key={asset.id} className="p-3 flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-slate-900 text-sm">{asset.model}</div>
+                      <div className="text-xs text-slate-500 font-mono">{asset.serialNumber}</div>
+                    </div>
+                    <div className="text-xs font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded uppercase">
+                      {asset.siteId}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 flex gap-3">
+              <button
+                onClick={() => setAssetsToDelete(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Log Modal */}
+      {viewingHistory && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
+              <div className="flex items-center gap-3 text-blue-600">
+                <div className="p-2 bg-blue-50 rounded-full">
+                  <HistoryIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Asset History</h3>
+                  <p className="text-xs text-slate-500 font-mono">{viewingHistory.serialNumber}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setViewingHistory(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto bg-slate-50/50">
+              <div className="space-y-4">
+                {viewingHistory.history && viewingHistory.history.length > 0 ? (
+                  viewingHistory.history.slice().reverse().map((entry, idx) => (
+                    <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                          {entry.field} Change
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      {entry.oldValue === null ? (
+                        <div className="text-sm font-medium text-emerald-600">
+                          {entry.newValue}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 bg-slate-50 p-2 rounded border border-slate-100 line-through text-slate-400 text-xs">
+                            {String(entry.oldValue)}
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                          <div className="flex-1 bg-blue-50 p-2 rounded border border-blue-100 text-blue-700 text-xs font-semibold">
+                            {String(entry.newValue)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-slate-400 italic">
+                    No history recorded for this asset yet.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setViewingHistory(null)}
+                className="px-6 py-2 rounded-xl font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors"
+              >
+                Close Log
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row gap-4 justify-between items-center">
         <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
@@ -158,7 +357,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
         <div className="flex gap-2 w-full xl:w-auto flex-wrap md:flex-nowrap">
           {selectedIds.size > 0 && (
             <button
-              onClick={handleBulkDelete}
+              onClick={initiateBulkDelete}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors w-full md:w-auto animate-fade-in"
             >
               <Trash2 className="h-4 w-4" />
@@ -219,7 +418,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 <th className="px-6 py-4">Serial Number</th>
                 <th className="px-6 py-4 text-center">Site ID</th>
                 <th className="px-6 py-4 text-center">Country</th>
-                <th className="px-6 py-4">Status (Live Edit)</th>
+                <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -235,8 +434,48 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                         onChange={() => toggleSelect(asset.id)}
                       />
                     </td>
-                    <td className="px-6 py-4 font-medium text-slate-900">{asset.model}</td>
-                    <td className="px-6 py-4 text-slate-600 font-mono text-xs">{asset.serialNumber}</td>
+                    <td className="px-6 py-4 relative group/field">
+                      {editing?.id === asset.id && editing.field === 'model' ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editing.value}
+                          onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                          onBlur={saveEdit}
+                          onKeyDown={handleKeyDown}
+                          className="w-full px-2 py-1 border border-blue-400 rounded outline-none focus:ring-2 focus:ring-blue-100"
+                        />
+                      ) : (
+                        <div 
+                          className="flex items-center gap-2 cursor-pointer hover:bg-slate-100/50 p-1 -m-1 rounded transition-colors"
+                          onClick={() => startEditing(asset, 'model')}
+                        >
+                          <span className="font-medium text-slate-900">{asset.model}</span>
+                          <Edit3 className="h-3 w-3 text-slate-300 opacity-0 group-hover/field:opacity-100 transition-opacity" />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 relative group/field">
+                      {editing?.id === asset.id && editing.field === 'serialNumber' ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editing.value}
+                          onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+                          onBlur={saveEdit}
+                          onKeyDown={handleKeyDown}
+                          className="w-full px-2 py-1 border border-blue-400 rounded outline-none focus:ring-2 focus:ring-blue-100 font-mono text-xs"
+                        />
+                      ) : (
+                        <div 
+                          className="flex items-center gap-2 cursor-pointer hover:bg-slate-100/50 p-1 -m-1 rounded transition-colors"
+                          onClick={() => startEditing(asset, 'serialNumber')}
+                        >
+                          <span className="text-slate-600 font-mono text-xs">{asset.serialNumber}</span>
+                          <Edit3 className="h-3 w-3 text-slate-300 opacity-0 group-hover/field:opacity-100 transition-opacity" />
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
                         {asset.siteId}
@@ -277,13 +516,22 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => onDelete([asset.id])}
-                        className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-md hover:bg-red-50"
-                        title="Delete Asset"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setViewingHistory(asset)}
+                          className="text-slate-300 hover:text-blue-500 transition-colors p-2 rounded-md hover:bg-blue-50"
+                          title="View History"
+                        >
+                          <HistoryIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => initiateSingleDelete(asset)}
+                          className="text-slate-300 hover:text-red-500 transition-colors p-2 rounded-md hover:bg-red-50"
+                          title="Delete Asset"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

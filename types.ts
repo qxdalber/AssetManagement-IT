@@ -1,3 +1,10 @@
+export interface HistoryEntry {
+  timestamp: number;
+  field: string;
+  oldValue: any;
+  newValue: any;
+}
+
 export interface Asset {
   id: string;
   model: string;
@@ -6,6 +13,7 @@ export interface Asset {
   country: string;
   status: AssetStatus;
   createdAt: number;
+  history?: HistoryEntry[];
 }
 
 export enum AssetStatus {

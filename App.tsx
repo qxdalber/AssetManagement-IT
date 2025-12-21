@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
 import { Asset, AssetStatus } from './types';
-import { fetchAssets, addAssets, deleteAssets, updateAssetStatus } from './services/storageService';
+import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
 import { Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
 function App() {
@@ -54,35 +53,35 @@ function App() {
     }
   };
 
-  const handleUpdateAssetStatus = async (assetId: string, siteId: string, newStatus: AssetStatus) => {
+  const handleUpdateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>) => {
     try {
-      await updateAssetStatus(assetId, siteId, newStatus);
-      setAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: newStatus } : a));
-      showNotification('Status updated in S3', 'success');
+      await updateAsset(assetId, siteId, updates);
+      setAssets(prev => prev.map(a => a.id === assetId ? { ...a, ...updates } : a));
+      showNotification('Asset updated in S3', 'success');
     } catch (error) {
       console.error(error);
       showNotification('Update failed.', 'error');
-      throw error; // Let the component handle local UI rollback if needed
+      throw error; 
     }
   };
 
   const handleDeleteAssets = async (ids: string[]) => {
-    const count = ids.length;
-    if (window.confirm(count === 1 ? 'Delete this asset?' : `Delete ${count} assets?`)) {
-      setIsSaving(true);
-      try {
-        const assetsToDelete = assets.filter(a => ids.includes(a.id));
-        await deleteAssets(assetsToDelete);
-        setAssets(prev => prev.filter(a => !ids.includes(a.id)));
-        showNotification('Assets removed from S3', 'success');
-      } catch (error) {
-        console.error(error);
-        showNotification('Delete failed.', 'error');
-      } finally {
-        setIsSaving(false);
-      }
+    setIsSaving(true);
+    try {
+      const assetsToDelete = assets.filter(a => ids.includes(a.id));
+      await deleteAssets(assetsToDelete);
+      setAssets(prev => prev.filter(a => !ids.includes(a.id)));
+      showNotification('Assets removed from S3', 'success');
+    } catch (error) {
+      console.error(error);
+      showNotification('Delete failed.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
+
+  const bucketName = (import.meta as any).env?.VITE_ASSET_S3_BUCKET || 'Not Configured';
+  const regionName = (import.meta as any).env?.VITE_ASSET_S3_REGION || 'us-east-1';
 
   if (isLoading && assets.length === 0 && isConnected === null) {
     return (
@@ -136,7 +135,7 @@ function App() {
               <div>
                 <h2 className="text-2xl font-bold text-slate-900">Live Asset Inventory</h2>
                 <p className="text-slate-500 mt-1">
-                  Connected to: <strong>{(import.meta as any).env.VITE_ASSET_S3_BUCKET || 'Not Found'}</strong>
+                  Connected to: <strong>{bucketName}</strong>
                 </p>
               </div>
               <button
@@ -149,14 +148,14 @@ function App() {
             <AssetList 
               assets={assets} 
               onDelete={handleDeleteAssets} 
-              onUpdateStatus={handleUpdateAssetStatus}
+              onUpdateAsset={handleUpdateAsset}
             />
           </div>
         ) : (
           <div>
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold text-slate-900">Add New Assets</h2>
-              <p className="text-slate-500 mt-1">Manual, Bulk CSV, or Gemini AI Import</p>
+              <p className="text-slate-500 mt-1">Manual, Bulk CSV/Excel, or Gemini AI Import</p>
             </div>
             <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />
           </div>
@@ -169,10 +168,10 @@ function App() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-              Region: {(import.meta as any).env.VITE_ASSET_S3_REGION || 'us-east-1'}
+              Region: {regionName}
             </div>
             <div className="text-slate-300">|</div>
-            <div className="font-mono text-[10px] opacity-50">v1.2-LIVE-EDIT</div>
+            <div className="font-mono text-[10px] opacity-50">v1.2-STABLE</div>
           </div>
         </div>
       </footer>
