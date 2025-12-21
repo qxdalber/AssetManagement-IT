@@ -4,6 +4,7 @@ import { parseAssetsFromText } from '../services/geminiService';
 import { Bot, Save, AlertCircle, CheckCircle, Upload, FileSpreadsheet, Download, X } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface AssetFormProps {
   onAddAssets: (assets: Asset[]) => void;
@@ -76,75 +77,110 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
     }
   };
 
+  const processRowToAsset = (row: any): Asset | null => {
+    const normalizedRow: Record<string, any> = {};
+    Object.keys(row).forEach(key => {
+      normalizedRow[key.toLowerCase().trim()] = row[key];
+    });
+
+    // Flexible mapping for headers
+    const model = normalizedRow['model'] || normalizedRow['asset model'] || normalizedRow['product'] || normalizedRow['device'] || normalizedRow['item'];
+    const serial = normalizedRow['serial number'] || normalizedRow['serial'] || normalizedRow['sn'] || normalizedRow['serial no'] || normalizedRow['s/n'];
+    const site = normalizedRow['site id'] || normalizedRow['site'] || normalizedRow['location'] || normalizedRow['siteid'];
+    const country = normalizedRow['country'] || normalizedRow['nation'] || normalizedRow['origin'] || normalizedRow['region'];
+    const status = normalizedRow['status'] || normalizedRow['rma status'] || normalizedRow['rma'] || normalizedRow['condition'];
+
+    if (model && serial && site) {
+      let assetStatus = AssetStatus.Normal;
+      if (status) {
+        const s = String(status).trim();
+        const foundStatus = Object.values(AssetStatus).find(
+          enumVal => enumVal.toLowerCase() === s.toLowerCase()
+        );
+        if (foundStatus) {
+          assetStatus = foundStatus;
+        } else if (s.toLowerCase().includes('request')) {
+          assetStatus = AssetStatus.RMARequested;
+        } else if (s.toLowerCase().includes('ship')) {
+          assetStatus = AssetStatus.RMAShipped;
+        } else if (s.toLowerCase().includes('not eligible')) {
+          assetStatus = AssetStatus.RMANotEligible;
+        } else if (s.toLowerCase().includes('eligible')) {
+          assetStatus = AssetStatus.RMAEligible;
+        } else if (s.toLowerCase().includes('deprecated')) {
+          assetStatus = AssetStatus.Deprecated;
+        } else {
+          assetStatus = AssetStatus.Unknown;
+        }
+      }
+
+      return {
+        id: uuidv4(),
+        model: String(model).trim(),
+        serialNumber: String(serial).trim(),
+        siteId: String(site).trim(),
+        country: country ? String(country).trim() : '',
+        status: assetStatus,
+        createdAt: Date.now()
+      };
+    }
+    return null;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const assets: Asset[] = [];
+    const fileExt = file.name.split('.').pop()?.toLowerCase();
 
-        results.data.forEach((row: any) => {
-          const normalizedRow: Record<string, string> = {};
-          Object.keys(row).forEach(key => {
-            normalizedRow[key.toLowerCase().trim()] = row[key];
-          });
+    if (fileExt === 'csv') {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const assets: Asset[] = results.data
+            .map(row => processRowToAsset(row))
+            .filter((a): a is Asset => a !== null);
 
-          const model = normalizedRow['model'] || normalizedRow['asset model'] || normalizedRow['product'];
-          const serial = normalizedRow['serial number'] || normalizedRow['serial'] || normalizedRow['sn'] || normalizedRow['serial no'];
-          const site = normalizedRow['site id'] || normalizedRow['site'] || normalizedRow['location'];
-          const country = normalizedRow['country'] || normalizedRow['nation'] || normalizedRow['origin'];
-          const status = normalizedRow['status'] || normalizedRow['rma status'] || normalizedRow['rma'];
-
-          if (model && serial && site) {
-            let assetStatus = AssetStatus.Normal;
-            if (status) {
-              const s = status.trim();
-              const foundStatus = Object.values(AssetStatus).find(
-                enumVal => enumVal.toLowerCase() === s.toLowerCase()
-              );
-              if (foundStatus) {
-                assetStatus = foundStatus;
-              } else if (s.toLowerCase().includes('request')) {
-                assetStatus = AssetStatus.RMARequested;
-              } else if (s.toLowerCase().includes('ship')) {
-                assetStatus = AssetStatus.RMAShipped;
-              } else if (s.toLowerCase().includes('not eligible')) {
-                assetStatus = AssetStatus.RMANotEligible;
-              } else if (s.toLowerCase().includes('eligible')) {
-                assetStatus = AssetStatus.RMAEligible;
-              } else if (s.toLowerCase().includes('deprecated')) {
-                assetStatus = AssetStatus.Deprecated;
-              } else {
-                assetStatus = AssetStatus.Unknown;
-              }
-            }
-
-            assets.push({
-              id: uuidv4(),
-              model: model.trim(),
-              serialNumber: serial.trim(),
-              siteId: site.trim(),
-              country: country ? country.trim() : '',
-              status: assetStatus,
-              createdAt: Date.now()
-            });
+          if (assets.length === 0) {
+            setError("No valid assets found in CSV. Please check the column headers (Model, Serial Number, Site ID, Country).");
+          } else {
+            setBulkPreview(assets);
+            setError(null);
           }
-        });
-
-        if (assets.length === 0) {
-          setError("No valid assets found in CSV. Please check the column headers (Model, Serial Number, Site ID, Country).");
-        } else {
-          setBulkPreview(assets);
-          setError(null);
+        },
+        error: (err) => {
+          setError(`Failed to parse CSV: ${err.message}`);
         }
-      },
-      error: (err) => {
-        setError(`Failed to parse CSV: ${err.message}`);
-      }
-    });
+      });
+    } else if (fileExt === 'xlsx' || fileExt === 'xls') {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_json(ws);
+          
+          const assets: Asset[] = data
+            .map(row => processRowToAsset(row))
+            .filter((a): a is Asset => a !== null);
+
+          if (assets.length === 0) {
+            setError("No valid assets found in Excel file. Ensure it has headers like Model, Serial, Site, Country.");
+          } else {
+            setBulkPreview(assets);
+            setError(null);
+          }
+        } catch (err: any) {
+          setError(`Failed to parse Excel file: ${err.message}`);
+        }
+      };
+      reader.readAsBinaryString(file);
+    } else {
+      setError("Unsupported file format. Please use .csv, .xlsx, or .xls");
+    }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -191,7 +227,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
           }`}
         >
           <FileSpreadsheet className="h-4 w-4" />
-          Bulk Upload (CSV)
+          Bulk Upload (Excel/CSV)
         </button>
         <button
           onClick={() => setMode('ai')}
@@ -304,11 +340,11 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
                   <h3 className="text-emerald-900 font-semibold mb-2 flex items-center gap-2">
                     <FileSpreadsheet className="h-5 w-5" />
-                    Bulk Upload (CSV)
+                    Bulk Upload (Excel/CSV)
                   </h3>
                   <p className="text-sm text-emerald-800">
-                    Upload a CSV file to import multiple assets at once. 
-                    Ensure your CSV has headers like <strong>Model</strong>, <strong>Serial Number</strong>, <strong>Site ID</strong>, and <strong>Country</strong>.
+                    Upload an Excel (.xlsx, .xls) or CSV file. 
+                    The file should have separate columns for <strong>Model</strong>, <strong>Serial Number</strong>, <strong>Site ID</strong>, and <strong>Country</strong>.
                   </p>
                 </div>
 
@@ -316,7 +352,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                      onClick={() => fileInputRef.current?.click()}>
                   <input 
                     type="file" 
-                    accept=".csv" 
+                    accept=".csv,.xlsx,.xls" 
                     className="hidden" 
                     ref={fileInputRef} 
                     onChange={handleFileUpload}
@@ -325,7 +361,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                     <Upload className="h-8 w-8" />
                   </div>
                   <h3 className="text-lg font-medium text-slate-900">Click to upload or drag and drop</h3>
-                  <p className="text-slate-500 text-sm mt-1">CSV files only (max 5MB)</p>
+                  <p className="text-slate-500 text-sm mt-1">CSV, XLSX, XLS (max 10MB)</p>
                 </div>
 
                 <div className="flex justify-center">
