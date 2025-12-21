@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Asset, AssetStatus, HistoryEntry } from '../types';
+import { Asset, AssetStatus } from '../types';
 import { Search, Filter, Sparkles, Trash2, Download, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 

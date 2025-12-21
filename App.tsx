@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
-import { Asset, AssetStatus } from './types';
+import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
 import { Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
