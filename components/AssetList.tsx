@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Asset, AssetStatus } from '../types';
-import { Search, Filter, Sparkles, Trash2, Download, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
@@ -203,9 +203,12 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
           )}
           <button onClick={async () => {
             setIsAnalyzing(true);
-            const r = await generateAssetReport(filteredAssets);
-            setAnalysis(r);
-            setIsAnalyzing(false);
+            try {
+              const r = await generateAssetReport(filteredAssets);
+              setAnalysis(r);
+            } finally {
+              setIsAnalyzing(false);
+            }
           }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700">
             {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             AI Insights
@@ -227,7 +230,13 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
           <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
             <tr>
               <th className="px-6 py-4 w-10 text-center">
-                <input type="checkbox" checked={allSelected} ref={i => i && (i.indeterminate = isIndeterminate)} onChange={handleSelectAll} className="rounded" />
+                <input 
+                  type="checkbox" 
+                  checked={allSelected} 
+                  ref={el => { if (el) { el.indeterminate = isIndeterminate; } }} 
+                  onChange={handleSelectAll} 
+                  className="rounded" 
+                />
               </th>
               <th className="px-6 py-4">Model & Serial</th>
               <th className="px-6 py-4 text-center">Site & Country</th>
@@ -244,7 +253,14 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 <td className="px-6 py-4">
                   <div className="group/edit">
                     {editing?.id === asset.id && editing.field === 'model' ? (
-                      <input ref={editInputRef} value={editing.value} onChange={e => setEditing({...editing, value: e.target.value})} onBlur={saveEdit} onKeyDown={e => e.key === 'Enter' && saveEdit()} className="border-b border-blue-500 outline-none w-full" />
+                      <input 
+                        ref={editInputRef} 
+                        value={editing.value} 
+                        onChange={e => setEditing({...editing, value: e.target.value})} 
+                        onBlur={saveEdit} 
+                        onKeyDown={e => e.key === 'Enter' && saveEdit()} 
+                        className="border-b border-blue-500 outline-none w-full bg-transparent" 
+                      />
                     ) : (
                       <div className="flex items-center gap-2 font-bold text-slate-900 cursor-pointer" onClick={() => setEditing({id: asset.id, field: 'model', value: asset.model})}>
                         {asset.model} <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300" />
@@ -260,24 +276,49 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  {updatingAssetId === asset.id ? <Loader2 className="h-4 w-4 animate-spin text-blue-500" /> : (
-                    <select 
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold border ${getStatusColor(asset.status)} outline-none cursor-pointer appearance-none text-center`}
-                      value={asset.status}
-                      onChange={e => handleStatusChange(asset, e.target.value as AssetStatus)}
-                    >
-                      {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  )}
+                  <div className="relative group/status min-w-[120px]">
+                    {updatingAssetId === asset.id ? (
+                      <div className="flex items-center gap-2 text-blue-600 text-xs font-semibold">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Updating...
+                      </div>
+                    ) : (
+                      <select 
+                        value={asset.status}
+                        onChange={(e) => handleStatusChange(asset, e.target.value as AssetStatus)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold border transition-all appearance-none outline-none cursor-pointer ${getStatusColor(asset.status)}`}
+                      >
+                        {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setViewingHistory(asset)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><HistoryIcon className="h-4 w-4" /></button>
-                    <button onClick={() => setAssetsToDelete([asset])} className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                  <div className="flex justify-end gap-2">
+                    <button 
+                      onClick={() => setViewingHistory(asset)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title="View History"
+                    >
+                      <HistoryIcon className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => setAssetsToDelete([asset])}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Delete Asset"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </td>
               </tr>
             ))}
+            {filteredAssets.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                  No assets found matching your criteria.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

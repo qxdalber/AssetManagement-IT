@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldLock, User, Key, AlertCircle, Loader2, Database } from 'lucide-react';
+import { ShieldCheck, User, Key, AlertCircle, Loader2, Database } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (user: string, pass: string) => Promise<boolean>;
@@ -90,7 +90,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  <ShieldLock className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                  <ShieldCheck className="h-5 w-5 group-hover:scale-110 transition-transform" />
                   Authenticate
                 </>
               )}
