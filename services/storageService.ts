@@ -17,8 +17,8 @@ let client: S3Client | null = null;
 const getClient = () => {
   if (!client) {
     if (!ACCESS_KEY || !SECRET_KEY) {
-      console.error("Missing S3 Credentials. Expected VITE_ASSET_S3_ACCESS_KEY and VITE_ASSET_S3_SECRET_KEY");
-      throw new Error("S3 Credentials are not configured in environment variables.");
+      console.error("Missing S3 Credentials.");
+      throw new Error("S3 Credentials are not configured.");
     }
     client = new S3Client({
       region: REGION,
@@ -50,8 +50,8 @@ const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
       const rawData = JSON.parse(str);
       return rawData.map((item: any) => ({
         ...item,
-        country: item.country || item.nation || '',
-        status: item.status || item.rmaStatus || AssetStatus.Normal,
+        country: item.country || '',
+        status: item.status || AssetStatus.Normal,
         history: item.history || []
       }));
     }
@@ -60,49 +60,36 @@ const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
     if (e.name === 'NoSuchKey' || e.name === 'NotFound' || e.$metadata?.httpStatusCode === 404) {
       return [];
     }
-    console.error(`Failed to load assets from ${key}:`, e);
     return [];
   }
 };
 
 export const fetchAssets = async (): Promise<Asset[]> => {
-  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) {
-    console.warn("VITE_ASSET_S3 variables not found. S3 storage is disabled.");
-    return [];
-  }
-
+  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) return [];
   try {
     const s3 = getClient();
     const listCommand = new ListObjectsV2Command({
       Bucket: BUCKET,
       Prefix: ASSET_PREFIX,
     });
-    
     const listResponse = await s3.send(listCommand);
     const contents = listResponse.Contents || [];
-
-    if (contents.length === 0) {
-      return [];
-    }
-
+    if (contents.length === 0) return [];
     const filePromises = contents
       .map(file => file.Key)
       .filter((key): key is string => !!key)
       .map(key => fetchAssetsByKey(key));
-
     const results = await Promise.all(filePromises);
     return results.flat();
-
-  } catch (e: any) {
-    console.error('Failed to load asset library from S3:', e);
-    throw new Error('Could not connect to S3 Bucket.');
+  } catch (e) {
+    console.error('S3 Fetch Error:', e);
+    throw e;
   }
 };
 
 export const addAssets = async (newAssets: Asset[]): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
+  if (!BUCKET) throw new Error("S3 Bucket missing.");
   const s3 = getClient();
-
   const assetsBySite = newAssets.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
@@ -110,9 +97,9 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
       ...asset,
       history: asset.history || [{
         timestamp: Date.now(),
-        field: 'Initial Registration',
+        field: 'System',
         oldValue: null,
-        newValue: 'Created'
+        newValue: 'Initial Asset Registration'
       }]
     });
     return acc;
@@ -122,34 +109,28 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
     const fileKey = getSiteFileKey(siteId);
     const existingAssets = await fetchAssetsByKey(fileKey);
     const updatedAssets = [...existingAssets, ...assetsToAdd];
-    
     const putCommand = new PutObjectCommand({
       Bucket: BUCKET,
       Key: fileKey,
       Body: JSON.stringify(updatedAssets),
       ContentType: "application/json",
     });
-
     return s3.send(putCommand);
   });
-
   await Promise.all(updates);
 };
 
 export const updateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
+  if (!BUCKET) throw new Error("S3 Bucket missing.");
   const s3 = getClient();
   const fileKey = getSiteFileKey(siteId);
   const existingAssets = await fetchAssetsByKey(fileKey);
-  
   const updatedAssets = existingAssets.map(asset => {
     if (asset.id === assetId) {
       const newHistory: HistoryEntry[] = [...(asset.history || [])];
-      
-      // Record changes in history
       Object.entries(updates).forEach(([key, value]) => {
         const field = key as keyof Asset;
-        if (asset[field] !== value && key !== 'history' && key !== 'id' && key !== 'createdAt') {
+        if (asset[field] !== value && !['history', 'id', 'createdAt'].includes(key)) {
           newHistory.push({
             timestamp: Date.now(),
             field: key,
@@ -158,47 +139,39 @@ export const updateAsset = async (assetId: string, siteId: string, updates: Part
           });
         }
       });
-
       return { ...asset, ...updates, history: newHistory };
     }
     return asset;
   });
-  
   const putCommand = new PutObjectCommand({
     Bucket: BUCKET,
     Key: fileKey,
     Body: JSON.stringify(updatedAssets),
     ContentType: "application/json",
   });
-
   await s3.send(putCommand);
 };
 
 export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket name is missing.");
+  if (!BUCKET) throw new Error("S3 Bucket missing.");
   const s3 = getClient();
-
   const assetsBySite = assetsToDelete.reduce((acc, asset) => {
     const key = asset.siteId;
     if (!acc[key]) acc[key] = [];
     acc[key].push(asset.id);
     return acc;
   }, {} as Record<string, string[]>);
-
   const updates = Object.entries(assetsBySite).map(async ([siteId, idsToDelete]) => {
     const fileKey = getSiteFileKey(siteId);
     const existingAssets = await fetchAssetsByKey(fileKey);
     const updatedAssets = existingAssets.filter(a => !idsToDelete.includes(a.id));
-    
     const putCommand = new PutObjectCommand({
       Bucket: BUCKET,
       Key: fileKey,
       Body: JSON.stringify(updatedAssets),
       ContentType: "application/json",
     });
-
     return s3.send(putCommand);
   });
-
   await Promise.all(updates);
 };

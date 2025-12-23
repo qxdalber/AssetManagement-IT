@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
+import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
 import { Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('portal_auth') === 'true';
+  });
   const [view, setView] = useState<'list' | 'add'>('list');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -15,8 +19,10 @@ function App() {
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -31,6 +37,23 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLogin = async (user: string, pass: string): Promise<boolean> => {
+    const validUser = (import.meta as any).env?.VITE_PORTAL_USERNAME || 'admin';
+    const validPass = (import.meta as any).env?.VITE_PORTAL_PASSWORD || 'password123';
+    
+    if (user === validUser && pass === validPass) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('portal_auth', 'true');
+      return true;
+    }
+    return false;
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    sessionStorage.removeItem('portal_auth');
   };
 
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -83,6 +106,10 @@ function App() {
   const bucketName = (import.meta as any).env?.VITE_ASSET_S3_BUCKET || 'Not Configured';
   const regionName = (import.meta as any).env?.VITE_ASSET_S3_REGION || 'us-east-1';
 
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   if (isLoading && assets.length === 0 && isConnected === null) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
@@ -98,7 +125,13 @@ function App() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex justify-between items-center">
+           <button 
+            onClick={handleLogout}
+            className="text-[10px] uppercase font-bold text-slate-400 hover:text-red-500 transition-colors"
+           >
+             Terminate Session
+           </button>
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${
             isConnected 
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
@@ -113,7 +146,7 @@ function App() {
         </div>
 
         {isSaving && (
-          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-40 flex items-center justify-center">
+          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[200] flex items-center justify-center">
              <div className="bg-white px-6 py-4 rounded-lg shadow-xl flex items-center gap-3 border border-slate-200">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                 <span className="font-medium text-slate-700">Syncing with AWS S3...</span>
