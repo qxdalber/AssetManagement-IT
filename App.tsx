@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
@@ -5,7 +6,8 @@ import { AssetForm } from './components/AssetForm';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
-import { Loader2, Cloud, CloudOff, ShieldCheck } from 'lucide-react';
+// Added PlusCircle to the lucide-react imports
+import { Loader2, Cloud, CloudOff, ShieldCheck, PlusCircle } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -33,7 +35,7 @@ function App() {
     } catch (error) {
       console.error(error);
       setIsConnected(false);
-      showNotification('S3 Connection failed. Verify VITE_ASSET_S3 variables.', 'error');
+      showNotification('S3 Connection failed. Verify S3 variables.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -121,18 +123,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Header currentView={view} onNavigate={setView} />
+      <Header 
+        currentView={view} 
+        onNavigate={setView} 
+        onLogout={handleLogout} 
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
-        <div className="mb-4 flex justify-between items-center">
-           <button 
-            onClick={handleLogout}
-            className="text-[10px] uppercase font-bold text-slate-400 hover:text-red-500 transition-colors"
-           >
-             Terminate Session
-           </button>
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${
+        <div className="mb-4 flex justify-end items-center">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${
             isConnected 
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
               : isConnected === false 
@@ -140,42 +140,52 @@ function App() {
                 : 'bg-slate-50 text-slate-500 border-slate-200'
           }`}>
             {isConnected ? <Cloud className="h-3 w-3" /> : <CloudOff className="h-3 w-3" />}
-            {isConnected ? 'S3 Active' : 'S3 Offline'}
+            {isConnected ? 'S3 Online' : 'S3 Offline'}
             {isConnected && <ShieldCheck className="h-3 w-3 ml-1" />}
           </div>
         </div>
 
         {isSaving && (
-          <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-[200] flex items-center justify-center">
-             <div className="bg-white px-6 py-4 rounded-lg shadow-xl flex items-center gap-3 border border-slate-200">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                <span className="font-medium text-slate-700">Syncing with AWS S3...</span>
+          <div className="fixed inset-0 bg-slate-900/10 backdrop-blur-sm z-[200] flex items-center justify-center">
+             <div className="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-slate-100 animate-fade-in">
+                <div className="bg-blue-50 p-3 rounded-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-bold text-slate-900">Syncing Data</h3>
+                  <p className="text-xs text-slate-500 mt-1">Updating secure AWS S3 storage...</p>
+                </div>
              </div>
           </div>
         )}
 
         {notification && (
-          <div className={`fixed top-20 right-4 px-6 py-4 rounded-lg shadow-lg z-50 animate-fade-in text-white font-medium ${
-            notification.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-fade-in flex items-center gap-3 border ${
+            notification.type === 'success' 
+              ? 'bg-white text-emerald-700 border-emerald-100' 
+              : 'bg-white text-red-700 border-red-100'
           }`}>
-            {notification.message}
+            {notification.type === 'success' ? <ShieldCheck className="h-5 w-5" /> : <CloudOff className="h-5 w-5" />}
+            <span className="font-bold text-sm tracking-tight">{notification.message}</span>
           </div>
         )}
 
         {view === 'list' ? (
-          <div>
-            <div className="mb-6 flex justify-between items-end">
+          <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Live Asset Inventory</h2>
-                <p className="text-slate-500 mt-1">
-                  Connected to: <strong>{bucketName}</strong>
-                </p>
+                <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory</h2>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-sm font-medium text-slate-400">Environment:</span>
+                  <code className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{bucketName}</code>
+                </div>
               </div>
               <button
                 onClick={() => setView('add')}
-                className="hidden md:flex bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors items-center gap-2"
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 active:scale-95 flex items-center justify-center gap-2"
               >
-                + Register New Asset
+                <PlusCircle className="h-4 w-4" />
+                Register Asset
               </button>
             </div>
             <AssetList 
@@ -185,26 +195,26 @@ function App() {
             />
           </div>
         ) : (
-          <div>
-            <div className="mb-6 text-center">
-              <h2 className="text-2xl font-bold text-slate-900">Add New Assets</h2>
-              <p className="text-slate-500 mt-1">Manual, Bulk CSV/Excel, or Gemini AI Import</p>
+          <div className="space-y-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Add New Assets</h2>
+              <p className="text-slate-500 mt-2 font-medium">Choose between manual entry, bulk upload, or Gemini AI extraction.</p>
             </div>
             <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />
           </div>
         )}
       </main>
       
-      <footer className="bg-white border-t border-slate-200 py-6 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-slate-500 text-sm">
-          <div>&copy; {new Date().getFullYear()} EU_EF IT AssetTrack Portal</div>
-          <div className="flex items-center gap-4">
+      <footer className="bg-white border-t border-slate-200 py-8 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-400 text-xs">
+          <div className="font-bold uppercase tracking-widest">&copy; {new Date().getFullYear()} EU_EF IT ASSET PORTAL</div>
+          <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-              Region: {regionName}
+              <span className="font-semibold">{regionName.toUpperCase()}</span>
             </div>
-            <div className="text-slate-300">|</div>
-            <div className="font-mono text-[10px] opacity-50">v1.2-STABLE</div>
+            <div className="h-4 w-px bg-slate-200"></div>
+            <div className="font-mono opacity-60">v1.3-PRODUCTION</div>
           </div>
         </div>
       </footer>

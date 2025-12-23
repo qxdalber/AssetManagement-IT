@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Asset, AssetStatus } from '../types';
-import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight, Hash } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
@@ -181,7 +181,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Search assets..." 
+            placeholder="Search by model, SN, site or country..." 
             className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
@@ -238,8 +238,10 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                   className="rounded" 
                 />
               </th>
-              <th className="px-6 py-4">Model & Serial</th>
-              <th className="px-6 py-4 text-center">Site & Country</th>
+              <th className="px-6 py-4">Model</th>
+              <th className="px-6 py-4">Serial Number</th>
+              <th className="px-6 py-4">Site ID</th>
+              <th className="px-6 py-4">Country</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4 text-right">Actions</th>
             </tr>
@@ -259,20 +261,42 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                         onChange={e => setEditing({...editing, value: e.target.value})} 
                         onBlur={saveEdit} 
                         onKeyDown={e => e.key === 'Enter' && saveEdit()} 
-                        className="border-b border-blue-500 outline-none w-full bg-transparent" 
+                        className="border-b border-blue-500 outline-none w-full bg-transparent font-bold text-slate-900" 
                       />
                     ) : (
                       <div className="flex items-center gap-2 font-bold text-slate-900 cursor-pointer" onClick={() => setEditing({id: asset.id, field: 'model', value: asset.model})}>
                         {asset.model} <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300" />
                       </div>
                     )}
-                    <div className="text-[10px] font-mono text-slate-400">{asset.serialNumber}</div>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="font-bold text-slate-600">{asset.siteId}</div>
-                  <div className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
-                    <Globe className="h-2 w-2" /> {asset.country}
+                <td className="px-6 py-4">
+                  <div className="group/edit">
+                    {editing?.id === asset.id && editing.field === 'serialNumber' ? (
+                      <input 
+                        ref={editInputRef} 
+                        value={editing.value} 
+                        onChange={e => setEditing({...editing, value: e.target.value})} 
+                        onBlur={saveEdit} 
+                        onKeyDown={e => e.key === 'Enter' && saveEdit()} 
+                        className="border-b border-blue-500 outline-none w-full bg-transparent font-mono text-xs text-slate-600" 
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 font-mono text-xs text-slate-600 cursor-pointer" onClick={() => setEditing({id: asset.id, field: 'serialNumber', value: asset.serialNumber})}>
+                        <Hash className="h-3 w-3 text-slate-300" />
+                        {asset.serialNumber} 
+                        <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300" />
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="font-semibold text-slate-600">{asset.siteId}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-1.5 text-slate-600">
+                    <Globe className="h-3.5 w-3.5 text-slate-400" />
+                    {asset.country}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -314,7 +338,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             ))}
             {filteredAssets.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
                   No assets found matching your criteria.
                 </td>
               </tr>
