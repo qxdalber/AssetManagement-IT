@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Asset, AssetStatus } from '../types';
-import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight, Hash } from 'lucide-react';
+import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight, Hash, ChevronLeft, ChevronRight } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
@@ -17,6 +17,10 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [updatingAssetId, setUpdatingAssetId] = useState<string | null>(null);
   
+  // Pagination State
+  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  
   const [editing, setEditing] = useState<{ id: string, field: 'model' | 'serialNumber', value: string } | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
@@ -28,6 +32,11 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       editInputRef.current.select();
     }
   }, [editing]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, itemsPerPage]);
 
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
@@ -41,13 +50,20 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     });
   }, [assets, searchTerm, statusFilter]);
 
-  const allSelected = filteredAssets.length > 0 && filteredAssets.every(a => selectedIds.has(a.id));
-  const isIndeterminate = filteredAssets.some(a => selectedIds.has(a.id)) && !allSelected;
+  // Pagination Logic
+  const totalItems = filteredAssets.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+  const currentItems = filteredAssets.slice(startIndex, endIndex);
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const allSelectedOnPage = currentItems.length > 0 && currentItems.every(a => selectedIds.has(a.id));
+  const isIndeterminateOnPage = currentItems.some(a => selectedIds.has(a.id)) && !allSelectedOnPage;
+
+  const handleSelectAllOnPage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSelected = new Set(selectedIds);
-    if (e.target.checked) filteredAssets.forEach(a => newSelected.add(a.id));
-    else filteredAssets.forEach(a => newSelected.delete(a.id));
+    if (e.target.checked) currentItems.forEach(a => newSelected.add(a.id));
+    else currentItems.forEach(a => newSelected.delete(a.id));
     setSelectedIds(newSelected);
   };
 
@@ -175,21 +191,36 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
         </div>
       )}
 
-      {/* Main Table UI */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search by model, SN, site or country..." 
-            className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+      {/* Main Table UI Controls */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto items-center">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search by model, SN, site or country..." 
+              className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">View:</label>
+            <select 
+              className="px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+              value={itemsPerPage}
+              onChange={e => setItemsPerPage(Number(e.target.value))}
+            >
+              {[25, 50, 100, 125, 150].map(val => (
+                <option key={val} value={val}>{val} per page</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+
+        <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
           <select 
-            className="px-3 py-2 border rounded-lg text-sm bg-white outline-none"
+            className="px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
@@ -197,7 +228,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           {selectedIds.size > 0 && (
-            <button onClick={() => setAssetsToDelete(assets.filter(a => selectedIds.has(a.id)))} className="p-2 text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100">
+            <button onClick={() => setAssetsToDelete(assets.filter(a => selectedIds.has(a.id)))} className="p-2 text-red-600 bg-red-50 border border-red-100 rounded-lg hover:bg-red-100 transition-colors">
               <Trash2 className="h-4 w-4" />
             </button>
           )}
@@ -209,7 +240,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             } finally {
               setIsAnalyzing(false);
             }
-          }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700">
+          }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95">
             {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             AI Insights
           </button>
@@ -218,24 +249,24 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
 
       {analysis && (
         <div className="p-6 bg-gradient-to-br from-indigo-50 to-white rounded-2xl border border-indigo-100 shadow-sm relative animate-fade-in">
-          <button onClick={() => setAnalysis(null)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-500"><X className="h-4 w-4" /></button>
+          <button onClick={() => setAnalysis(null)} className="absolute top-4 right-4 text-slate-300 hover:text-slate-500 transition-colors"><X className="h-4 w-4" /></button>
           <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed">
             {analysis.split('\n').map((l, i) => <p key={i} className="mb-2">{l}</p>)}
           </div>
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto flex flex-col">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
             <tr>
               <th className="px-6 py-4 w-10 text-center">
                 <input 
                   type="checkbox" 
-                  checked={allSelected} 
-                  ref={el => { if (el) { el.indeterminate = isIndeterminate; } }} 
-                  onChange={handleSelectAll} 
-                  className="rounded" 
+                  checked={allSelectedOnPage} 
+                  ref={el => { if (el) { el.indeterminate = isIndeterminateOnPage; } }} 
+                  onChange={handleSelectAllOnPage} 
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
                 />
               </th>
               <th className="px-6 py-4">Model</th>
@@ -247,10 +278,15 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filteredAssets.map(asset => (
+            {currentItems.map(asset => (
               <tr key={asset.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.has(asset.id) ? 'bg-blue-50/30' : ''}`}>
                 <td className="px-6 py-4 text-center">
-                  <input type="checkbox" checked={selectedIds.has(asset.id)} onChange={() => toggleSelect(asset.id)} className="rounded" />
+                  <input 
+                    type="checkbox" 
+                    checked={selectedIds.has(asset.id)} 
+                    onChange={() => toggleSelect(asset.id)} 
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" 
+                  />
                 </td>
                 <td className="px-6 py-4">
                   <div className="group/edit">
@@ -265,7 +301,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                       />
                     ) : (
                       <div className="flex items-center gap-2 font-bold text-slate-900 cursor-pointer" onClick={() => setEditing({id: asset.id, field: 'model', value: asset.model})}>
-                        {asset.model} <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300" />
+                        {asset.model} <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300 transition-opacity" />
                       </div>
                     )}
                   </div>
@@ -285,7 +321,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                       <div className="flex items-center gap-2 font-mono text-xs text-slate-600 cursor-pointer" onClick={() => setEditing({id: asset.id, field: 'serialNumber', value: asset.serialNumber})}>
                         <Hash className="h-3 w-3 text-slate-300" />
                         {asset.serialNumber} 
-                        <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300" />
+                        <Edit3 className="h-3 w-3 opacity-0 group-hover/edit:opacity-100 text-slate-300 transition-opacity" />
                       </div>
                     )}
                   </div>
@@ -336,15 +372,67 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 </td>
               </tr>
             ))}
-            {filteredAssets.length === 0 && (
+            {currentItems.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
-                  No assets found matching your criteria.
+                  {totalItems > 0 ? "Adjust pagination or filters to see more results." : "No assets found matching your criteria."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+
+        {/* Pagination Footer */}
+        {totalItems > 0 && (
+          <div className="bg-slate-50 border-t border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs font-medium text-slate-500">
+              Showing <span className="text-slate-900 font-bold">{startIndex + 1}</span> to <span className="text-slate-900 font-bold">{endIndex}</span> of <span className="text-slate-900 font-bold">{totalItems}</span> assets
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              
+              <div className="flex items-center gap-1 px-2">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum = i + 1;
+                  // Basic slider for many pages
+                  if (totalPages > 5 && currentPage > 3) {
+                    pageNum = currentPage - 3 + i + 1;
+                    if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`min-w-[32px] h-8 text-xs font-bold rounded-lg transition-all ${
+                        currentPage === pageNum 
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
+                          : 'text-slate-600 hover:bg-white hover:border-slate-300 border border-transparent'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
