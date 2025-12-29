@@ -108,7 +108,7 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   }
 };
 
-export const updateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>): Promise<void> => {
+export const updateAsset = async (assetId: string, updates: Partial<Asset>): Promise<void> => {
   try {
     const client = getDocClient();
     const currentAssets = await fetchAssets(); 

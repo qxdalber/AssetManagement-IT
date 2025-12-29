@@ -77,9 +77,9 @@ function App() {
     }
   };
 
-  const handleUpdateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>) => {
+  const handleUpdateAsset = async (assetId: string, updates: Partial<Asset>) => {
     try {
-      await updateAsset(assetId, siteId, updates);
+      await updateAsset(assetId, updates);
       setAssets(prev => prev.map(a => a.id === assetId ? { ...a, ...updates } : a));
       showNotification('Asset updated in DynamoDB', 'success');
     } catch (error: any) {

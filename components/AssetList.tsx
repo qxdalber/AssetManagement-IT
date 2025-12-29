@@ -6,7 +6,7 @@ import { generateAssetReport } from '../services/geminiService';
 interface AssetListProps {
   assets: Asset[];
   onDelete: (ids: string[]) => void;
-  onUpdateAsset: (assetId: string, siteId: string, updates: Partial<Asset>) => Promise<void>;
+  onUpdateAsset: (assetId: string, updates: Partial<Asset>) => Promise<void>;
 }
 
 export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateAsset }) => {
@@ -78,7 +78,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     if (asset.status === newStatus) return;
     setUpdatingAssetId(asset.id);
     try {
-      await onUpdateAsset(asset.id, asset.siteId, { status: newStatus });
+      await onUpdateAsset(asset.id, { status: newStatus });
     } finally {
       setUpdatingAssetId(null);
     }
@@ -95,7 +95,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     const updates = { [editing.field]: editing.value };
     setEditing(null);
     try {
-      await onUpdateAsset(asset.id, asset.siteId, updates);
+      await onUpdateAsset(asset.id, updates);
     } finally {
       setUpdatingAssetId(null);
     }
