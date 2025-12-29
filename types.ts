@@ -6,12 +6,12 @@ export interface HistoryEntry {
 }
 
 export interface Asset {
-  id: string;
+  serialNumber: string; // Primary Key
   model: string;
-  serialNumber: string;
-  siteId: string;
+  siteID: string;
   country: string;
   status: AssetStatus;
+  comments?: string;
   createdAt: number;
   history?: HistoryEntry[];
 }
@@ -27,5 +27,5 @@ export enum AssetStatus {
 }
 
 export interface ParseResult {
-  assets: Omit<Asset, 'id' | 'createdAt'>[];
+  assets: Omit<Asset, 'createdAt'>[];
 }

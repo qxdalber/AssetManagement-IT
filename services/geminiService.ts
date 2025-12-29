@@ -26,16 +26,19 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
             properties: {
               model: { type: Type.STRING, description: "The model name or number of the asset" },
               serialNumber: { type: Type.STRING, description: "The serial number" },
-              siteId: { type: Type.STRING, description: "The location or Site ID" },
+              // Fix: Use siteID instead of siteId to align with Asset interface
+              siteID: { type: Type.STRING, description: "The location or Site ID" },
               country: { type: Type.STRING, description: "The country where the asset is located" },
               status: { 
                 type: Type.STRING, 
                 description: "The status of the asset. Must be one of: Normal, RMA Requested, RMA Shipped, RMA Eligible, RMA Not Eligible, Deprecated, Unknown" 
               }
             },
-            required: ["model", "serialNumber", "siteId", "country", "status"],
+            // Fix: Updated required property list to use siteID
+            required: ["model", "serialNumber", "siteID", "country", "status"],
             // propertyOrdering is recommended for structured JSON output
-            propertyOrdering: ["model", "serialNumber", "siteId", "country", "status"]
+            // Fix: Updated propertyOrdering to use siteID
+            propertyOrdering: ["model", "serialNumber", "siteID", "country", "status"]
           }
         }
       }
@@ -61,7 +64,8 @@ export const generateAssetReport = async (assets: Asset[]): Promise<string> => {
   try {
     const dataStr = JSON.stringify(assets.map(a => ({
       model: a.model,
-      site: a.siteId,
+      // Fix: Property access should be siteID as per Asset type definition
+      site: a.siteID,
       country: a.country,
       status: a.status
     })));

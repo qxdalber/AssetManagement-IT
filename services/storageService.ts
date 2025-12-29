@@ -21,7 +21,7 @@ let docClient: DynamoDBDocumentClient | null = null;
 const getDocClient = () => {
   if (!docClient) {
     if (!ACCESS_KEY || !SECRET_KEY) {
-      throw new Error("AWS Credentials (Access/Secret Key) are missing from configuration.");
+      throw new Error("AWS Credentials missing. Check environment variables.");
     }
     const client = new DynamoDBClient({
       region: REGION,
@@ -33,7 +33,7 @@ const getDocClient = () => {
     docClient = DynamoDBDocumentClient.from(client, {
       marshallOptions: {
         removeUndefinedValues: true,
-        convertEmptyValues: true // Ensure empty strings don't crash key attributes
+        convertEmptyValues: true
       }
     });
   }
@@ -43,24 +43,15 @@ const getDocClient = () => {
 export const fetchAssets = async (): Promise<Asset[]> => {
   try {
     const client = getDocClient();
-    const command = new ScanCommand({
-      TableName: TABLE_NAME,
-    });
-    
+    const command = new ScanCommand({ TableName: TABLE_NAME });
     const response = await client.send(command);
-    const items = response.Items || [];
-    
-    return items.map((item: any) => ({
+    return (response.Items || []).map((item: any) => ({
       ...item,
-      country: item.country || '',
       status: item.status || AssetStatus.Normal,
       history: item.history || []
     })) as Asset[];
   } catch (e: any) {
-    if (e.name === 'AccessDeniedException') {
-      throw new Error("IAM Access Denied: Check policy for 'dynamodb:Scan' on " + TABLE_NAME);
-    }
-    console.error('DynamoDB Fetch Error:', e);
+    console.error('Fetch Error:', e);
     throw e;
   }
 };
@@ -78,8 +69,6 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
         PutRequest: {
           Item: {
             ...asset,
-            // Ensure no empty strings in critical fields
-            id: asset.id || Math.random().toString(36).substr(2, 9),
             history: asset.history || [{
               timestamp: Date.now(),
               field: 'System',
@@ -91,9 +80,7 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
       }));
 
       const command = new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: putRequests
-        }
+        RequestItems: { [TABLE_NAME]: putRequests }
       });
       return client.send(command);
     });
@@ -102,24 +89,24 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   } catch (e: any) {
     console.error('Bulk Upload Error:', e);
     if (e.message.includes('key element')) {
-      throw new Error("DynamoDB Schema Mismatch: Ensure your table Partition Key is named exactly 'id' (case-sensitive).");
+      throw new Error(`Schema Error: Ensure your DynamoDB Table "${TABLE_NAME}" has a Partition Key named exactly "serialNumber" (case-sensitive).`);
     }
     throw e;
   }
 };
 
-export const updateAsset = async (assetId: string, updates: Partial<Asset>): Promise<void> => {
+export const updateAsset = async (serialNumber: string, updates: Partial<Asset>): Promise<void> => {
   try {
     const client = getDocClient();
     const currentAssets = await fetchAssets(); 
-    const asset = currentAssets.find(a => a.id === assetId);
+    const asset = currentAssets.find(a => a.serialNumber === serialNumber);
     
-    if (!asset) throw new Error("Asset not found for update.");
+    if (!asset) throw new Error("Asset not found.");
 
     const newHistory: HistoryEntry[] = [...(asset.history || [])];
     Object.entries(updates).forEach(([key, value]) => {
       const field = key as keyof Asset;
-      if (asset[field] !== value && !['history', 'id', 'createdAt'].includes(key)) {
+      if (asset[field] !== value && !['history', 'serialNumber', 'createdAt'].includes(key)) {
         newHistory.push({
           timestamp: Date.now(),
           field: key,
@@ -130,13 +117,10 @@ export const updateAsset = async (assetId: string, updates: Partial<Asset>): Pro
     });
 
     const updatedAsset = { ...asset, ...updates, history: newHistory };
-
-    const command = new PutCommand({
+    await client.send(new PutCommand({
       TableName: TABLE_NAME,
       Item: updatedAsset
-    });
-
-    await client.send(command);
+    }));
   } catch (e: any) {
     console.error('Update Error:', e);
     throw e;
@@ -154,18 +138,11 @@ export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
     const deletePromises = batches.map(async (batch) => {
       const deleteRequests = batch.map(asset => ({
         DeleteRequest: {
-          // IMPORTANT: Only provide the actual Partition Key defined in AWS. 
-          // If your table has a Sort Key, you must add it here too.
-          Key: {
-            id: asset.id
-          }
+          Key: { serialNumber: asset.serialNumber }
         }
       }));
-
       const command = new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: deleteRequests
-        }
+        RequestItems: { [TABLE_NAME]: deleteRequests }
       });
       return client.send(command);
     });
@@ -173,9 +150,6 @@ export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
     await Promise.all(deletePromises);
   } catch (e: any) {
     console.error('Delete Error:', e);
-    if (e.message.includes('key element')) {
-       throw new Error("Delete Failed: The identifier provided doesn't match your DynamoDB Table Key schema.");
-    }
     throw e;
   }
 };
