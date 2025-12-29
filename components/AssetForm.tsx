@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { parseAssetsFromText } from '../services/geminiService';
 import { Bot, Save, AlertCircle, CheckCircle, Upload, FileSpreadsheet, Download, X } from 'lucide-react';
@@ -80,15 +80,15 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
   const processRowToAsset = (row: any): Asset | null => {
     const normalizedRow: Record<string, any> = {};
     Object.keys(row).forEach(key => {
-      normalizedRow[key.toLowerCase().trim()] = row[key];
+      normalizedRow[key.toLowerCase().trim().replace(/[^a-z0-9]/g, '')] = row[key];
     });
 
-    // Flexible mapping for headers
-    const model = normalizedRow['model'] || normalizedRow['asset model'] || normalizedRow['product'] || normalizedRow['device'] || normalizedRow['item'];
-    const serial = normalizedRow['serial number'] || normalizedRow['serial'] || normalizedRow['sn'] || normalizedRow['serial no'] || normalizedRow['s/n'];
-    const site = normalizedRow['site id'] || normalizedRow['site'] || normalizedRow['location'] || normalizedRow['siteid'];
+    // Flexible mapping for common IT headers
+    const model = normalizedRow['model'] || normalizedRow['assetmodel'] || normalizedRow['product'] || normalizedRow['device'] || normalizedRow['item'];
+    const serial = normalizedRow['serialnumber'] || normalizedRow['serial'] || normalizedRow['sn'] || normalizedRow['serialno'] || normalizedRow['snno'];
+    const site = normalizedRow['siteid'] || normalizedRow['site'] || normalizedRow['location'] || normalizedRow['sitecode'];
     const country = normalizedRow['country'] || normalizedRow['nation'] || normalizedRow['origin'] || normalizedRow['region'];
-    const status = normalizedRow['status'] || normalizedRow['rma status'] || normalizedRow['rma'] || normalizedRow['condition'];
+    const status = normalizedRow['status'] || normalizedRow['rmastatus'] || normalizedRow['rma'] || normalizedRow['condition'];
 
     if (model && serial && site) {
       let assetStatus = AssetStatus.Normal;
@@ -143,7 +143,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
             .filter((a): a is Asset => a !== null);
 
           if (assets.length === 0) {
-            setError("No valid assets found in CSV. Please check the column headers (Model, Serial Number, Site ID, Country).");
+            setError("No valid assets found in CSV. Required columns: Model, Serial Number, Site ID.");
           } else {
             setBulkPreview(assets);
             setError(null);
@@ -168,18 +168,18 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
             .filter((a): a is Asset => a !== null);
 
           if (assets.length === 0) {
-            setError("No valid assets found in Excel file. Ensure it has headers like Model, Serial, Site, Country.");
+            setError("No valid assets found in Excel. Ensure you have columns like Model, Serial, Site ID.");
           } else {
             setBulkPreview(assets);
             setError(null);
           }
         } catch (err: any) {
-          setError(`Failed to parse Excel file: ${err.message}`);
+          setError(`Failed to parse Excel: ${err.message}`);
         }
       };
       reader.readAsBinaryString(file);
     } else {
-      setError("Unsupported file format. Please use .csv, .xlsx, or .xls");
+      setError("Unsupported format. Use .csv, .xlsx, or .xls");
     }
 
     if (fileInputRef.current) {
@@ -188,7 +188,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
   };
 
   const downloadTemplate = () => {
-    const csvContent = "Model,Serial Number,Site ID,Country,Status\nCisco Catalyst 9200,FOC12345678,NYC-01,USA,Normal\nLenovo ThinkPad X1,PF123456,LON-HQ,UK,RMA Requested";
+    const csvContent = "Model,Serial Number,SiteID,Country,Status\nCisco C9200,FOC12345678,NYC-01,USA,Normal\nLenovo X1,PF123456,LON-HQ,UK,RMA Requested";
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -343,8 +343,8 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                     Bulk Upload (Excel/CSV)
                   </h3>
                   <p className="text-sm text-emerald-800">
-                    Upload an Excel (.xlsx, .xls) or CSV file. 
-                    The file should have separate columns for <strong>Model</strong>, <strong>Serial Number</strong>, <strong>Site ID</strong>, and <strong>Country</strong>.
+                    Upload an Excel or CSV file. 
+                    The table should have columns for <strong>Model</strong>, <strong>Serial Number</strong>, and <strong>SiteID</strong>.
                   </p>
                 </div>
 
@@ -453,8 +453,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 AI Smart Import
               </h3>
               <p className="text-sm text-purple-800">
-                Paste any unstructured text below (e.g., email threads, chat logs, or messy Excel copy-pastes). 
-                Gemini will automatically extract models, serial numbers, sites, countries, and infer the status.
+                Paste any unstructured text below. Gemini will automatically extract fields.
               </p>
             </div>
 
@@ -463,7 +462,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none h-48 resize-none font-mono text-sm"
                 value={aiInput}
                 onChange={e => setAiInput(e.target.value)}
-                placeholder={`Example:\nHi team, the switch at Site LA-05 (Model: C9300-24T, SN: FCW2345L0) in Germany is eligible for RMA. \nAlso, received a new Router ISR4331 at NY-02, USA, SN: FDO2451X, working normally.`}
+                placeholder={`Example:\nModel: C9300-24T, SN: FCW2345L0, Site: NYC-01, Status: RMA Requested.`}
               />
             </div>
 

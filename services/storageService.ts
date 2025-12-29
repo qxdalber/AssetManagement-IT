@@ -33,6 +33,7 @@ const getDocClient = () => {
     docClient = DynamoDBDocumentClient.from(client, {
       marshallOptions: {
         removeUndefinedValues: true,
+        convertEmptyValues: true // Ensure empty strings don't crash key attributes
       }
     });
   }
@@ -57,7 +58,7 @@ export const fetchAssets = async (): Promise<Asset[]> => {
     })) as Asset[];
   } catch (e: any) {
     if (e.name === 'AccessDeniedException') {
-      throw new Error("IAM Access Denied: Please update your User Policy to allow 'dynamodb:Scan' on table " + TABLE_NAME);
+      throw new Error("IAM Access Denied: Check policy for 'dynamodb:Scan' on " + TABLE_NAME);
     }
     console.error('DynamoDB Fetch Error:', e);
     throw e;
@@ -77,6 +78,8 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
         PutRequest: {
           Item: {
             ...asset,
+            // Ensure no empty strings in critical fields
+            id: asset.id || Math.random().toString(36).substr(2, 9),
             history: asset.history || [{
               timestamp: Date.now(),
               field: 'System',
@@ -97,8 +100,9 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
 
     await Promise.all(writePromises);
   } catch (e: any) {
-    if (e.name === 'AccessDeniedException') {
-      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:BatchWriteItem'.");
+    console.error('Bulk Upload Error:', e);
+    if (e.message.includes('key element')) {
+      throw new Error("DynamoDB Schema Mismatch: Ensure your table Partition Key is named exactly 'id' (case-sensitive).");
     }
     throw e;
   }
@@ -108,7 +112,7 @@ export const updateAsset = async (assetId: string, siteId: string, updates: Part
   try {
     const client = getDocClient();
     const currentAssets = await fetchAssets(); 
-    const asset = currentAssets.find(a => a.id === assetId && a.siteId === siteId);
+    const asset = currentAssets.find(a => a.id === assetId);
     
     if (!asset) throw new Error("Asset not found for update.");
 
@@ -134,9 +138,7 @@ export const updateAsset = async (assetId: string, siteId: string, updates: Part
 
     await client.send(command);
   } catch (e: any) {
-    if (e.name === 'AccessDeniedException') {
-      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:PutItem'.");
-    }
+    console.error('Update Error:', e);
     throw e;
   }
 };
@@ -152,8 +154,9 @@ export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
     const deletePromises = batches.map(async (batch) => {
       const deleteRequests = batch.map(asset => ({
         DeleteRequest: {
+          // IMPORTANT: Only provide the actual Partition Key defined in AWS. 
+          // If your table has a Sort Key, you must add it here too.
           Key: {
-            siteId: asset.siteId,
             id: asset.id
           }
         }
@@ -169,8 +172,9 @@ export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
 
     await Promise.all(deletePromises);
   } catch (e: any) {
-    if (e.name === 'AccessDeniedException') {
-      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:BatchWriteItem'.");
+    console.error('Delete Error:', e);
+    if (e.message.includes('key element')) {
+       throw new Error("Delete Failed: The identifier provided doesn't match your DynamoDB Table Key schema.");
     }
     throw e;
   }
