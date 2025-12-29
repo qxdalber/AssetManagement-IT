@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { parseAssetsFromText } from '../services/geminiService';
-import { Bot, Save, AlertCircle, CheckCircle, Upload, FileSpreadsheet, Download, X } from 'lucide-react';
+import { Save, AlertCircle, Upload } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 

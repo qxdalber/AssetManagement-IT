@@ -5,7 +5,7 @@ import { AssetForm } from './components/AssetForm';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
-import { Loader2, DatabaseZap, ShieldCheck, PlusCircle, AlertCircle } from 'lucide-react';
+import { DatabaseZap, PlusCircle } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => sessionStorage.getItem('portal_auth') === 'true');

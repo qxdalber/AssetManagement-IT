@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Asset, AssetStatus } from '../types';
-import { Search, Sparkles, Trash2, Loader2, Globe, Edit3, AlertTriangle, X, History as HistoryIcon, ArrowRight, Hash, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Search, Sparkles, Trash2, Loader2, Globe, AlertTriangle, X, History as HistoryIcon } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 
 interface AssetListProps {
@@ -16,15 +16,10 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSerials, setSelectedSerials] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [itemsPerPage, setItemsPerPage] = useState<number>(25);
+  const [itemsPerPage] = useState<number>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [editing, setEditing] = useState<{ serial: string, field: keyof Asset, value: string } | null>(null);
-  const editInputRef = useRef<HTMLInputElement>(null);
   const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Asset | null>(null);
-
-  useEffect(() => { if (editing && editInputRef.current) { editInputRef.current.focus(); editInputRef.current.select(); } }, [editing]);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, itemsPerPage]);
 
   const filtered = useMemo(() => assets.filter(a => {
     const term = searchTerm.toLowerCase();
@@ -39,16 +34,6 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     const next = new Set(selectedSerials);
     next.has(s) ? next.delete(s) : next.add(s);
     setSelectedSerials(next);
-  };
-
-  const saveEdit = async () => {
-    if (!editing) return;
-    const asset = assets.find(a => a.serialNumber === editing.serial);
-    if (!asset || asset[editing.field] === editing.value) { setEditing(null); return; }
-    setUpdatingId(asset.serialNumber);
-    const updates = { [editing.field]: editing.value };
-    setEditing(null);
-    try { await onUpdateAsset(asset.serialNumber, updates); } finally { setUpdatingId(null); }
   };
 
   return (
