@@ -26,12 +26,16 @@ function App() {
       setIsConnected(true);
     } catch (error: any) {
       setIsConnected(false);
-      showNotification(error.message || 'DynamoDB Connection failed.', 'error');
+      // Don't show error immediately on load if not authenticated yet or table doesn't exist
+      if (isAuthenticated) {
+        showNotification(error.message || 'DynamoDB Connection failed.', 'error');
+      }
     } finally { setIsLoading(false); }
   };
 
-  const handleLogin = async (user: string, pass: string): Promise<boolean> => {
-    if (user === 'admin' && pass === 'password123') {
+  const handleLogin = async (user: string, _pass: string): Promise<boolean> => {
+    // Permissive login for "Open Web Portal" - accepts any non-empty username
+    if (user.trim().length > 0) {
       setIsAuthenticated(true);
       sessionStorage.setItem('portal_auth', 'true');
       return true;
@@ -51,15 +55,20 @@ function App() {
       setAssets(prev => [...prev, ...newAssets]);
       setView('list');
       showNotification(`Saved ${newAssets.length} asset(s) to DynamoDB`, 'success');
-    } catch (error: any) { showNotification(error.message, 'error'); } 
-    finally { setIsSaving(false); }
+    } catch (error: any) { 
+      showNotification(error.message, 'error'); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   const handleUpdateAsset = async (serialNumber: string, updates: Partial<Asset>) => {
     try {
       await updateAsset(serialNumber, updates);
       setAssets(prev => prev.map(a => a.serialNumber === serialNumber ? { ...a, ...updates } : a));
-    } catch (error: any) { showNotification(error.message, 'error'); }
+    } catch (error: any) { 
+      showNotification(error.message, 'error'); 
+    }
   };
 
   const handleDeleteAssets = async (serials: string[]) => {
@@ -69,8 +78,11 @@ function App() {
       await deleteAssets(assetsToDelete);
       setAssets(prev => prev.filter(a => !serials.includes(a.serialNumber)));
       showNotification('Assets removed', 'success');
-    } catch (error: any) { showNotification(error.message, 'error'); }
-    finally { setIsSaving(false); }
+    } catch (error: any) { 
+      showNotification(error.message, 'error'); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   if (!isAuthenticated) return <Login onLogin={handleLogin} />;
@@ -92,7 +104,10 @@ function App() {
           <div className="space-y-6">
             <div className="flex justify-between items-end">
               <h2 className="text-3xl font-extrabold">Inventory</h2>
-              <button onClick={() => setView('add')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"><PlusCircle className="h-4 w-4" /> Add Asset</button>
+              <div className="flex gap-2">
+                 <button onClick={loadData} className="px-4 py-2 border rounded-lg text-sm font-bold text-slate-600 hover:bg-white transition-colors">Refresh</button>
+                 <button onClick={() => setView('add')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"><PlusCircle className="h-4 w-4" /> Add Asset</button>
+              </div>
             </div>
             <AssetList assets={assets} onDelete={handleDeleteAssets} onUpdateAsset={handleUpdateAsset} />
           </div>

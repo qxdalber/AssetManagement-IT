@@ -6,8 +6,8 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('password123');
   const [error, setError] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -17,7 +17,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setIsLoggingIn(true);
     
     // Artificial delay for "security check" feel
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
     
     const success = await onLogin(username, password);
     if (!success) {
@@ -45,7 +45,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm animate-fade-in">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>Invalid credentials. Access Denied.</span>
+              <span>Authentication error. Please enter a username.</span>
             </div>
           )}
 
@@ -67,14 +67,13 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Password (Optional)</label>
               <div className="relative">
                 <Key className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                 <input
                   type="password"
-                  required
                   className="w-full bg-slate-800/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-600"
-                  placeholder="Enter password"
+                  placeholder="Any password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />
@@ -91,15 +90,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               ) : (
                 <>
                   <ShieldCheck className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                  Authenticate
+                  Enter Portal
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center flex flex-col gap-2">
             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">
-              Secure Gateway System v1.2
+              Open Access System
+            </p>
+            <p className="text-[10px] text-blue-500/60 font-medium">
+              Credentials: admin / password123 (or any username)
             </p>
           </div>
         </div>
