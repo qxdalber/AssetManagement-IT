@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
@@ -6,8 +5,7 @@ import { AssetForm } from './components/AssetForm';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
-// Added PlusCircle to the lucide-react imports
-import { Loader2, Cloud, CloudOff, ShieldCheck, PlusCircle } from 'lucide-react';
+import { Loader2, Database as DbIcon, DatabaseZap, ShieldCheck, PlusCircle, AlertCircle } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -32,10 +30,10 @@ function App() {
       const data = await fetchAssets();
       setAssets(data);
       setIsConnected(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setIsConnected(false);
-      showNotification('S3 Connection failed. Verify S3 variables.', 'error');
+      showNotification(error.message || 'DynamoDB Connection failed.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +58,8 @@ function App() {
 
   const showNotification = (message: string, type: 'success' | 'error') => {
     setNotification({ message, type });
-    setTimeout(() => setNotification(null), 5000);
+    const duration = type === 'error' ? 8000 : 5000;
+    setTimeout(() => setNotification(null), duration);
   };
 
   const handleAddAssets = async (newAssets: Asset[]) => {
@@ -69,10 +68,10 @@ function App() {
       await addAssets(newAssets);
       setAssets(prev => [...prev, ...newAssets]);
       setView('list');
-      showNotification(`Saved ${newAssets.length} asset(s) to S3`, 'success');
-    } catch (error) {
+      showNotification(`Saved ${newAssets.length} asset(s) to DynamoDB`, 'success');
+    } catch (error: any) {
       console.error(error);
-      showNotification('Save failed. Check S3 CORS/Permissions.', 'error');
+      showNotification(error.message || 'Save failed.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -82,10 +81,10 @@ function App() {
     try {
       await updateAsset(assetId, siteId, updates);
       setAssets(prev => prev.map(a => a.id === assetId ? { ...a, ...updates } : a));
-      showNotification('Asset updated in S3', 'success');
-    } catch (error) {
+      showNotification('Asset updated in DynamoDB', 'success');
+    } catch (error: any) {
       console.error(error);
-      showNotification('Update failed.', 'error');
+      showNotification(error.message || 'Update failed.', 'error');
       throw error; 
     }
   };
@@ -96,17 +95,17 @@ function App() {
       const assetsToDelete = assets.filter(a => ids.includes(a.id));
       await deleteAssets(assetsToDelete);
       setAssets(prev => prev.filter(a => !ids.includes(a.id)));
-      showNotification('Assets removed from S3', 'success');
-    } catch (error) {
+      showNotification('Assets removed from DynamoDB', 'success');
+    } catch (error: any) {
       console.error(error);
-      showNotification('Delete failed.', 'error');
+      showNotification(error.message || 'Delete failed.', 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const bucketName = (import.meta as any).env?.VITE_ASSET_S3_BUCKET || 'Not Configured';
-  const regionName = (import.meta as any).env?.VITE_ASSET_S3_REGION || 'us-east-1';
+  const tableName = (import.meta as any).env?.VITE_ASSET_DYNAMO_TABLE || 'Assets';
+  const regionName = (import.meta as any).env?.VITE_ASSET_AWS_REGION || 'us-east-1';
 
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
@@ -116,7 +115,7 @@ function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
         <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4"></div>
-        <p className="text-slate-500 font-medium">Initializing Cloud Environment...</p>
+        <p className="text-slate-500 font-medium">Connecting to DynamoDB Instance...</p>
       </div>
     );
   }
@@ -134,13 +133,13 @@ function App() {
         <div className="mb-4 flex justify-end items-center">
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${
             isConnected 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+              ? 'bg-blue-50 text-blue-700 border-blue-200' 
               : isConnected === false 
                 ? 'bg-red-50 text-red-700 border-red-200'
                 : 'bg-slate-50 text-slate-500 border-slate-200'
           }`}>
-            {isConnected ? <Cloud className="h-3 w-3" /> : <CloudOff className="h-3 w-3" />}
-            {isConnected ? 'S3 Online' : 'S3 Offline'}
+            {isConnected ? <DatabaseZap className="h-3 w-3" /> : <DbIcon className="h-3 w-3" />}
+            {isConnected ? 'DynamoDB Active' : 'No Connection'}
             {isConnected && <ShieldCheck className="h-3 w-3 ml-1" />}
           </div>
         </div>
@@ -152,21 +151,21 @@ function App() {
                   <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
                 </div>
                 <div className="text-center">
-                  <h3 className="font-bold text-slate-900">Syncing Data</h3>
-                  <p className="text-xs text-slate-500 mt-1">Updating secure AWS S3 storage...</p>
+                  <h3 className="font-bold text-slate-900">Synchronizing Data</h3>
+                  <p className="text-xs text-slate-500 mt-1">AWS Cloud Operations in progress...</p>
                 </div>
              </div>
           </div>
         )}
 
         {notification && (
-          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-fade-in flex items-center gap-3 border ${
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-fade-in flex items-center gap-3 border max-w-[90vw] md:max-w-md ${
             notification.type === 'success' 
               ? 'bg-white text-emerald-700 border-emerald-100' 
               : 'bg-white text-red-700 border-red-100'
           }`}>
-            {notification.type === 'success' ? <ShieldCheck className="h-5 w-5" /> : <CloudOff className="h-5 w-5" />}
-            <span className="font-bold text-sm tracking-tight">{notification.message}</span>
+            {notification.type === 'success' ? <ShieldCheck className="h-5 w-5 flex-shrink-0" /> : <AlertCircle className="h-5 w-5 flex-shrink-0" />}
+            <span className="font-bold text-xs tracking-tight">{notification.message}</span>
           </div>
         )}
 
@@ -176,8 +175,8 @@ function App() {
               <div>
                 <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory</h2>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-sm font-medium text-slate-400">Environment:</span>
-                  <code className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{bucketName}</code>
+                  <span className="text-sm font-medium text-slate-400">Database:</span>
+                  <code className="text-[10px] font-bold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{tableName}</code>
                 </div>
               </div>
               <button
@@ -198,7 +197,7 @@ function App() {
           <div className="space-y-8 max-w-4xl mx-auto">
             <div className="text-center">
               <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Add New Assets</h2>
-              <p className="text-slate-500 mt-2 font-medium">Choose between manual entry, bulk upload, or Gemini AI extraction.</p>
+              <p className="text-slate-500 mt-2 font-medium">Manual entry, bulk upload, or Gemini AI extraction.</p>
             </div>
             <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />
           </div>
@@ -210,11 +209,11 @@ function App() {
           <div className="font-bold uppercase tracking-widest">&copy; {new Date().getFullYear()} EU_EF IT ASSET PORTAL</div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-blue-500' : 'bg-red-500'}`}></div>
               <span className="font-semibold">{regionName.toUpperCase()}</span>
             </div>
             <div className="h-4 w-px bg-slate-200"></div>
-            <div className="font-mono opacity-60">v1.3-PRODUCTION</div>
+            <div className="font-mono opacity-60">v1.4-DYNAMODB</div>
           </div>
         </div>
       </footer>

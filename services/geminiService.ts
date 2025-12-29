@@ -1,8 +1,10 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Asset, AssetStatus } from "../types";
 
 // Parse unstructured text into structured asset data
 export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[]> => {
+  // Always initialize with the specific API key from environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
@@ -29,18 +31,20 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
               country: { type: Type.STRING, description: "The country where the asset is located" },
               status: { 
                 type: Type.STRING, 
-                enum: Object.values(AssetStatus),
-                description: "The status of the asset" 
+                description: "The status of the asset. Must be one of: Normal, RMA Requested, RMA Shipped, RMA Eligible, RMA Not Eligible, Deprecated, Unknown" 
               }
             },
-            required: ["model", "serialNumber", "siteId", "country", "status"]
+            required: ["model", "serialNumber", "siteId", "country", "status"],
+            // propertyOrdering is recommended for structured JSON output
+            propertyOrdering: ["model", "serialNumber", "siteId", "country", "status"]
           }
         }
       }
     });
 
+    // Directly access the .text property as per Gemini API guidelines
     if (response.text) {
-      return JSON.parse(response.text) as Partial<Asset>[];
+      return JSON.parse(response.text.trim()) as Partial<Asset>[];
     }
     return [];
   } catch (error) {
@@ -53,6 +57,7 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
 export const generateAssetReport = async (assets: Asset[]): Promise<string> => {
   if (assets.length === 0) return "No assets to analyze.";
   
+  // Always initialize with the specific API key from environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const dataStr = JSON.stringify(assets.map(a => ({
@@ -76,6 +81,7 @@ export const generateAssetReport = async (assets: Asset[]): Promise<string> => {
       ${dataStr}`
     });
 
+    // Directly access the .text property as per Gemini API guidelines
     return response.text || "Analysis failed to generate text.";
   } catch (error) {
     console.error("Gemini analysis error:", error);

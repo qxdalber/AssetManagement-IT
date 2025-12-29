@@ -1,177 +1,177 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { 
+  DynamoDBDocumentClient, 
+  ScanCommand, 
+  PutCommand, 
+  BatchWriteCommand
+} from "@aws-sdk/lib-dynamodb";
 import { Asset, AssetStatus, HistoryEntry } from '../types';
 
 const getEnv = (key: string): string | undefined => {
   return (import.meta as any).env?.[key];
 };
 
-const REGION = getEnv('VITE_ASSET_S3_REGION') || 'us-east-1';
-const BUCKET = getEnv('VITE_ASSET_S3_BUCKET');
-const ACCESS_KEY = getEnv('VITE_ASSET_S3_ACCESS_KEY');
-const SECRET_KEY = getEnv('VITE_ASSET_S3_SECRET_KEY');
+const REGION = getEnv('VITE_ASSET_AWS_REGION') || 'us-east-1';
+const TABLE_NAME = getEnv('VITE_ASSET_DYNAMO_TABLE') || 'Assets';
+const ACCESS_KEY = getEnv('VITE_ASSET_ACCESS_KEY');
+const SECRET_KEY = getEnv('VITE_ASSET_SECRET_KEY');
 
-const ASSET_PREFIX = 'assets/';
+let docClient: DynamoDBDocumentClient | null = null;
 
-let client: S3Client | null = null;
-
-const getClient = () => {
-  if (!client) {
+const getDocClient = () => {
+  if (!docClient) {
     if (!ACCESS_KEY || !SECRET_KEY) {
-      console.error("Missing S3 Credentials.");
-      throw new Error("S3 Credentials are not configured.");
+      throw new Error("AWS Credentials (Access/Secret Key) are missing from configuration.");
     }
-    client = new S3Client({
+    const client = new DynamoDBClient({
       region: REGION,
       credentials: {
         accessKeyId: ACCESS_KEY,
         secretAccessKey: SECRET_KEY,
       },
     });
-  }
-  return client;
-};
-
-const getSiteFileKey = (siteId: string) => {
-  const sanitized = siteId.trim().replace(/[^a-zA-Z0-9-_]/g, '_');
-  return `${ASSET_PREFIX}site_${sanitized}.json`;
-};
-
-const fetchAssetsByKey = async (key: string): Promise<Asset[]> => {
-  try {
-    const s3 = getClient();
-    const command = new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
+    docClient = DynamoDBDocumentClient.from(client, {
+      marshallOptions: {
+        removeUndefinedValues: true,
+      }
     });
-    
-    const response = await s3.send(command);
-    if (response.Body) {
-      const str = await response.Body.transformToString();
-      const rawData = JSON.parse(str);
-      return rawData.map((item: any) => ({
-        ...item,
-        country: item.country || '',
-        status: item.status || AssetStatus.Normal,
-        history: item.history || []
-      }));
-    }
-    return [];
-  } catch (e: any) {
-    if (e.name === 'NoSuchKey' || e.name === 'NotFound' || e.$metadata?.httpStatusCode === 404) {
-      return [];
-    }
-    return [];
   }
+  return docClient;
 };
 
 export const fetchAssets = async (): Promise<Asset[]> => {
-  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) return [];
   try {
-    const s3 = getClient();
-    const listCommand = new ListObjectsV2Command({
-      Bucket: BUCKET,
-      Prefix: ASSET_PREFIX,
+    const client = getDocClient();
+    const command = new ScanCommand({
+      TableName: TABLE_NAME,
     });
-    const listResponse = await s3.send(listCommand);
-    const contents = listResponse.Contents || [];
-    if (contents.length === 0) return [];
-    const filePromises = contents
-      .map(file => file.Key)
-      .filter((key): key is string => !!key)
-      .map(key => fetchAssetsByKey(key));
-    const results = await Promise.all(filePromises);
-    return results.flat();
-  } catch (e) {
-    console.error('S3 Fetch Error:', e);
+    
+    const response = await client.send(command);
+    const items = response.Items || [];
+    
+    return items.map((item: any) => ({
+      ...item,
+      country: item.country || '',
+      status: item.status || AssetStatus.Normal,
+      history: item.history || []
+    })) as Asset[];
+  } catch (e: any) {
+    if (e.name === 'AccessDeniedException') {
+      throw new Error("IAM Access Denied: Please update your User Policy to allow 'dynamodb:Scan' on table " + TABLE_NAME);
+    }
+    console.error('DynamoDB Fetch Error:', e);
     throw e;
   }
 };
 
 export const addAssets = async (newAssets: Asset[]): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket missing.");
-  const s3 = getClient();
-  const assetsBySite = newAssets.reduce((acc, asset) => {
-    const key = asset.siteId;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push({
-      ...asset,
-      history: asset.history || [{
-        timestamp: Date.now(),
-        field: 'System',
-        oldValue: null,
-        newValue: 'Initial Asset Registration'
-      }]
-    });
-    return acc;
-  }, {} as Record<string, Asset[]>);
+  try {
+    const client = getDocClient();
+    const batches: Asset[][] = [];
+    for (let i = 0; i < newAssets.length; i += 25) {
+      batches.push(newAssets.slice(i, i + 25));
+    }
 
-  const updates = Object.entries(assetsBySite).map(async ([siteId, assetsToAdd]) => {
-    const fileKey = getSiteFileKey(siteId);
-    const existingAssets = await fetchAssetsByKey(fileKey);
-    const updatedAssets = [...existingAssets, ...assetsToAdd];
-    const putCommand = new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: fileKey,
-      Body: JSON.stringify(updatedAssets),
-      ContentType: "application/json",
+    const writePromises = batches.map(async (batch) => {
+      const putRequests = batch.map(asset => ({
+        PutRequest: {
+          Item: {
+            ...asset,
+            history: asset.history || [{
+              timestamp: Date.now(),
+              field: 'System',
+              oldValue: null,
+              newValue: 'Initial Asset Registration'
+            }]
+          }
+        }
+      }));
+
+      const command = new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: putRequests
+        }
+      });
+      return client.send(command);
     });
-    return s3.send(putCommand);
-  });
-  await Promise.all(updates);
+
+    await Promise.all(writePromises);
+  } catch (e: any) {
+    if (e.name === 'AccessDeniedException') {
+      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:BatchWriteItem'.");
+    }
+    throw e;
+  }
 };
 
 export const updateAsset = async (assetId: string, siteId: string, updates: Partial<Asset>): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket missing.");
-  const s3 = getClient();
-  const fileKey = getSiteFileKey(siteId);
-  const existingAssets = await fetchAssetsByKey(fileKey);
-  const updatedAssets = existingAssets.map(asset => {
-    if (asset.id === assetId) {
-      const newHistory: HistoryEntry[] = [...(asset.history || [])];
-      Object.entries(updates).forEach(([key, value]) => {
-        const field = key as keyof Asset;
-        if (asset[field] !== value && !['history', 'id', 'createdAt'].includes(key)) {
-          newHistory.push({
-            timestamp: Date.now(),
-            field: key,
-            oldValue: asset[field],
-            newValue: value
-          });
-        }
-      });
-      return { ...asset, ...updates, history: newHistory };
+  try {
+    const client = getDocClient();
+    const currentAssets = await fetchAssets(); 
+    const asset = currentAssets.find(a => a.id === assetId && a.siteId === siteId);
+    
+    if (!asset) throw new Error("Asset not found for update.");
+
+    const newHistory: HistoryEntry[] = [...(asset.history || [])];
+    Object.entries(updates).forEach(([key, value]) => {
+      const field = key as keyof Asset;
+      if (asset[field] !== value && !['history', 'id', 'createdAt'].includes(key)) {
+        newHistory.push({
+          timestamp: Date.now(),
+          field: key,
+          oldValue: asset[field],
+          newValue: value
+        });
+      }
+    });
+
+    const updatedAsset = { ...asset, ...updates, history: newHistory };
+
+    const command = new PutCommand({
+      TableName: TABLE_NAME,
+      Item: updatedAsset
+    });
+
+    await client.send(command);
+  } catch (e: any) {
+    if (e.name === 'AccessDeniedException') {
+      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:PutItem'.");
     }
-    return asset;
-  });
-  const putCommand = new PutObjectCommand({
-    Bucket: BUCKET,
-    Key: fileKey,
-    Body: JSON.stringify(updatedAssets),
-    ContentType: "application/json",
-  });
-  await s3.send(putCommand);
+    throw e;
+  }
 };
 
 export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
-  if (!BUCKET) throw new Error("S3 Bucket missing.");
-  const s3 = getClient();
-  const assetsBySite = assetsToDelete.reduce((acc, asset) => {
-    const key = asset.siteId;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(asset.id);
-    return acc;
-  }, {} as Record<string, string[]>);
-  const updates = Object.entries(assetsBySite).map(async ([siteId, idsToDelete]) => {
-    const fileKey = getSiteFileKey(siteId);
-    const existingAssets = await fetchAssetsByKey(fileKey);
-    const updatedAssets = existingAssets.filter(a => !idsToDelete.includes(a.id));
-    const putCommand = new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: fileKey,
-      Body: JSON.stringify(updatedAssets),
-      ContentType: "application/json",
+  try {
+    const client = getDocClient();
+    const batches: Asset[][] = [];
+    for (let i = 0; i < assetsToDelete.length; i += 25) {
+      batches.push(assetsToDelete.slice(i, i + 25));
+    }
+
+    const deletePromises = batches.map(async (batch) => {
+      const deleteRequests = batch.map(asset => ({
+        DeleteRequest: {
+          Key: {
+            siteId: asset.siteId,
+            id: asset.id
+          }
+        }
+      }));
+
+      const command = new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: deleteRequests
+        }
+      });
+      return client.send(command);
     });
-    return s3.send(putCommand);
-  });
-  await Promise.all(updates);
+
+    await Promise.all(deletePromises);
+  } catch (e: any) {
+    if (e.name === 'AccessDeniedException') {
+      throw new Error("IAM Access Denied: Update policy to allow 'dynamodb:BatchWriteItem'.");
+    }
+    throw e;
+  }
 };
