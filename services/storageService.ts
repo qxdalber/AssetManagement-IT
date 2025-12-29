@@ -3,6 +3,7 @@ import {
   DynamoDBDocumentClient, 
   ScanCommand, 
   PutCommand, 
+  DeleteCommand,
   BatchWriteCommand
 } from "@aws-sdk/lib-dynamodb";
 import { Asset, AssetStatus, HistoryEntry } from '../types';
@@ -106,7 +107,7 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
     const newHistory: HistoryEntry[] = [...(asset.history || [])];
     Object.entries(updates).forEach(([key, value]) => {
       const field = key as keyof Asset;
-      if (asset[field] !== value && !['history', 'serialNumber', 'createdAt'].includes(key)) {
+      if (asset[field] !== value && !['history', 'createdAt'].includes(key)) {
         newHistory.push({
           timestamp: Date.now(),
           field: key,
@@ -117,6 +118,15 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
     });
 
     const updatedAsset = { ...asset, ...updates, history: newHistory };
+    
+    // If PK (serialNumber) changed, we need to delete the old record and create the new one
+    if (updates.serialNumber && updates.serialNumber !== serialNumber) {
+      await client.send(new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: { serialNumber }
+      }));
+    }
+
     await client.send(new PutCommand({
       TableName: TABLE_NAME,
       Item: updatedAsset

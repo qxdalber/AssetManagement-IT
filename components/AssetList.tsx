@@ -14,7 +14,10 @@ import {
   Rows,
   FileDown,
   FileText,
-  Table as TableIcon
+  Table as TableIcon,
+  Pencil,
+  Check,
+  XCircle
 } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 import Papa from 'papaparse';
@@ -32,9 +35,13 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSerials, setSelectedSerials] = useState<Set<string>>(new Set());
-  const [updatingId] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   
+  // Inline Edit State
+  const [editingSerial, setEditingSerial] = useState<string | null>(null);
+  const [editData, setEditData] = useState<Partial<Asset>>({});
+
   // Pagination State
   const [itemsPerPage, setItemsPerPage] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -92,6 +99,33 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const startEditing = (asset: Asset) => {
+    setEditingSerial(asset.serialNumber);
+    setEditData({
+      model: asset.model,
+      serialNumber: asset.serialNumber,
+      siteID: asset.siteID,
+      country: asset.country
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingSerial(null);
+    setEditData({});
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSerial) return;
+    setUpdatingId(editingSerial);
+    try {
+      await onUpdateAsset(editingSerial, editData);
+      setEditingSerial(null);
+      setEditData({});
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -294,58 +328,131 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {currentItems.map(a => (
-                <tr key={a.serialNumber} className={`hover:bg-slate-50/50 transition-colors ${selectedSerials.has(a.serialNumber) ? 'bg-blue-50/30' : ''}`}>
-                  <td className="px-6 py-4 text-center">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedSerials.has(a.serialNumber)} 
-                      onChange={() => toggleSelect(a.serialNumber)} 
-                      className="rounded border-slate-300"
-                    />
-                  </td>
-                  <td className="px-6 py-4 font-bold text-slate-900">{a.model}</td>
-                  <td className="px-6 py-4 font-mono text-xs text-blue-600 font-bold">{a.serialNumber}</td>
-                  <td className="px-6 py-4 font-semibold text-slate-700">{a.siteID}</td>
-                  <td className="px-6 py-4 text-slate-500">
-                    <div className="flex items-center gap-1.5">
-                      <Globe className="h-3 w-3 text-slate-400" />
-                      {a.country}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {updatingId === a.serialNumber ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                    ) : (
-                      <select 
-                        value={a.status} 
-                        onChange={(e) => onUpdateAsset(a.serialNumber, { status: e.target.value as AssetStatus })} 
-                        className={`px-3 py-1 border rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all appearance-none cursor-pointer text-center min-w-[120px] ${getStatusClasses(a.status)}`}
-                      >
-                        {Object.values(AssetStatus).map(s => <option key={s} value={s} className="bg-white text-slate-900">{s}</option>)}
-                      </select>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button 
-                        onClick={() => setViewingHistory(a)} 
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
-                        title="View History"
-                      >
-                        <HistoryIcon className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => setAssetsToDelete([a])} 
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
-                        title="Delete Asset"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {currentItems.map(a => {
+                const isEditing = editingSerial === a.serialNumber;
+                return (
+                  <tr key={a.serialNumber} className={`hover:bg-slate-50/50 transition-colors ${selectedSerials.has(a.serialNumber) ? 'bg-blue-50/30' : ''}`}>
+                    <td className="px-6 py-4 text-center">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedSerials.has(a.serialNumber)} 
+                        onChange={() => toggleSelect(a.serialNumber)} 
+                        className="rounded border-slate-300"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          className="w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                          value={editData.model || ''} 
+                          onChange={e => setEditData({...editData, model: e.target.value})}
+                        />
+                      ) : (
+                        <span className="font-bold text-slate-900">{a.model}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          className="w-full px-2 py-1 border rounded text-xs font-mono focus:ring-1 focus:ring-blue-500 outline-none" 
+                          value={editData.serialNumber || ''} 
+                          onChange={e => setEditData({...editData, serialNumber: e.target.value})}
+                        />
+                      ) : (
+                        <span className="font-mono text-xs text-blue-600 font-bold">{a.serialNumber}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          className="w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                          value={editData.siteID || ''} 
+                          onChange={e => setEditData({...editData, siteID: e.target.value})}
+                        />
+                      ) : (
+                        <span className="font-semibold text-slate-700">{a.siteID}</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          className="w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                          value={editData.country || ''} 
+                          onChange={e => setEditData({...editData, country: e.target.value})}
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Globe className="h-3 w-3 text-slate-400" />
+                          {a.country}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {updatingId === a.serialNumber ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      ) : (
+                        <select 
+                          value={a.status} 
+                          onChange={(e) => onUpdateAsset(a.serialNumber, { status: e.target.value as AssetStatus })} 
+                          className={`px-3 py-1 border rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all appearance-none cursor-pointer text-center min-w-[120px] ${getStatusClasses(a.status)}`}
+                        >
+                          {Object.values(AssetStatus).map(s => <option key={s} value={s} className="bg-white text-slate-900">{s}</option>)}
+                        </select>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        {isEditing ? (
+                          <>
+                            <button 
+                              onClick={handleSaveEdit} 
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
+                              title="Save Changes"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={cancelEditing} 
+                              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all" 
+                              title="Cancel"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={() => startEditing(a)} 
+                              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" 
+                              title="Edit Asset"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => setViewingHistory(a)} 
+                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
+                              title="View History"
+                            >
+                              <HistoryIcon className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => setAssetsToDelete([a])} 
+                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                              title="Delete Asset"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 && (

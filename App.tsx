@@ -65,7 +65,13 @@ function App() {
   const handleUpdateAsset = async (serialNumber: string, updates: Partial<Asset>) => {
     try {
       await updateAsset(serialNumber, updates);
-      setAssets(prev => prev.map(a => a.serialNumber === serialNumber ? { ...a, ...updates } : a));
+      setAssets(prev => prev.map(a => {
+        if (a.serialNumber === serialNumber) {
+          return { ...a, ...updates };
+        }
+        return a;
+      }));
+      showNotification('Asset updated', 'success');
     } catch (error: any) { 
       showNotification(error.message, 'error'); 
     }
