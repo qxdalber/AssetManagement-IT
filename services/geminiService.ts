@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Asset, AssetStatus } from "../types";
+import { Asset } from "../types";
 
 // Parse unstructured text into structured asset data
 export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[]> => {
