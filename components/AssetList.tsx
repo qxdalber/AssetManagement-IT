@@ -15,9 +15,9 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSerials, setSelectedSerials] = useState<Set<string>>(new Set());
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [updatingId] = useState<string | null>(null);
   const [itemsPerPage] = useState<number>(25);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [currentPage] = useState<number>(1);
   const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Asset | null>(null);
 
