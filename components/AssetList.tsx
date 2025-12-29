@@ -42,6 +42,26 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Asset | null>(null);
 
+  // Helper for status colors
+  const getStatusClasses = (status: AssetStatus) => {
+    switch (status) {
+      case AssetStatus.Normal: 
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+      case AssetStatus.RMARequested: 
+        return 'bg-amber-50 text-amber-700 border-amber-200';
+      case AssetStatus.RMAShipped: 
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case AssetStatus.RMAEligible: 
+        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      case AssetStatus.RMANotEligible: 
+        return 'bg-rose-50 text-rose-700 border-rose-200';
+      case AssetStatus.Deprecated: 
+        return 'bg-slate-100 text-slate-600 border-slate-200';
+      default: 
+        return 'bg-slate-50 text-slate-500 border-slate-200';
+    }
+  };
+
   // Reset page on search or filter change
   useEffect(() => {
     setCurrentPage(1);
@@ -270,7 +290,6 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 <th className="px-6 py-4">SiteID</th>
                 <th className="px-6 py-4">Country</th>
                 <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Comments</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -301,13 +320,12 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                       <select 
                         value={a.status} 
                         onChange={(e) => onUpdateAsset(a.serialNumber, { status: e.target.value as AssetStatus })} 
-                        className="px-2.5 py-1 border rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-white focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-sm hover:border-slate-300 transition-all"
+                        className={`px-3 py-1 border rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all appearance-none cursor-pointer text-center min-w-[120px] ${getStatusClasses(a.status)}`}
                       >
-                        {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        {Object.values(AssetStatus).map(s => <option key={s} value={s} className="bg-white text-slate-900">{s}</option>)}
                       </select>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-slate-500 italic max-w-xs truncate">{a.comments || '-'}</td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-1">
                       <button 
