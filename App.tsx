@@ -5,7 +5,7 @@ import { AssetForm } from './components/AssetForm';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
-import { DatabaseZap, PlusCircle } from 'lucide-react';
+import { DatabaseZap, PlusCircle, RotateCw } from 'lucide-react';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => sessionStorage.getItem('portal_auth') === 'true');
@@ -18,19 +18,24 @@ function App() {
 
   useEffect(() => { if (isAuthenticated) loadData(); }, [isAuthenticated]);
 
-  const loadData = async () => {
+  const loadData = async (isManual = false) => {
     setIsLoading(true);
     try {
       const data = await fetchAssets();
       setAssets(data);
       setIsConnected(true);
+      if (isManual) {
+        showNotification('Inventory updated successfully', 'success');
+      }
     } catch (error: any) {
       setIsConnected(false);
-      // Don't show error immediately on load if not authenticated yet or table doesn't exist
-      if (isAuthenticated) {
-        showNotification(error.message || 'DynamoDB Connection failed.', 'error');
+      // Show error on manual refresh or if authenticated
+      if (isAuthenticated || isManual) {
+        showNotification(error.message || 'DynamoDB Connection failed. Check AWS credentials.', 'error');
       }
-    } finally { setIsLoading(false); }
+    } finally { 
+      setIsLoading(false); 
+    }
   };
 
   const handleLogin = async (user: string, _pass: string): Promise<boolean> => {
@@ -92,7 +97,16 @@ function App() {
   };
 
   if (!isAuthenticated) return <Login onLogin={handleLogin} />;
-  if (isLoading && assets.length === 0) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400">Loading Cloud Inventory...</div>;
+  
+  // Initial full-page loader
+  if (isLoading && assets.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <RotateCw className="h-8 w-8 text-blue-600 animate-spin" />
+        <p className="font-bold text-slate-400">Loading Cloud Inventory...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -103,16 +117,40 @@ function App() {
             <DatabaseZap className="h-3 w-3" /> {isConnected ? 'DynamoDB Linked' : 'Disconnected'}
           </div>
         </div>
-        {notification && <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-xl z-50 border bg-white ${notification.type === 'success' ? 'text-emerald-700' : 'text-red-700'}`}>{notification.message}</div>}
-        {isSaving && <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[200] flex items-center justify-center font-bold">Syncing with AWS...</div>}
+        
+        {notification && (
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl z-50 border bg-white flex items-center gap-3 animate-fade-in ${notification.type === 'success' ? 'text-emerald-700 border-emerald-100 shadow-emerald-500/10' : 'text-red-700 border-red-100 shadow-red-500/10'}`}>
+            <div className={`h-2 w-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+            <span className="font-semibold">{notification.message}</span>
+          </div>
+        )}
+
+        {isSaving && (
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[200] flex flex-col items-center justify-center gap-4">
+            <RotateCw className="h-10 w-10 text-blue-600 animate-spin" />
+            <p className="font-extrabold text-slate-800">Syncing with AWS...</p>
+          </div>
+        )}
 
         {view === 'list' ? (
           <div className="space-y-6">
             <div className="flex justify-between items-end">
-              <h2 className="text-3xl font-extrabold">Inventory</h2>
+              <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory</h2>
               <div className="flex gap-2">
-                 <button onClick={loadData} className="px-4 py-2 border rounded-lg text-sm font-bold text-slate-600 hover:bg-white transition-colors">Refresh</button>
-                 <button onClick={() => setView('add')} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"><PlusCircle className="h-4 w-4" /> Add Asset</button>
+                 <button 
+                  onClick={() => loadData(true)} 
+                  disabled={isLoading}
+                  className="px-4 py-2 border rounded-lg text-sm font-bold text-slate-600 bg-white hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                 >
+                   <RotateCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                   {isLoading ? 'Updating...' : 'Refresh'}
+                 </button>
+                 <button 
+                  onClick={() => setView('add')} 
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20"
+                 >
+                   <PlusCircle className="h-4 w-4" /> Add Asset
+                 </button>
               </div>
             </div>
             <AssetList assets={assets} onDelete={handleDeleteAssets} onUpdateAsset={handleUpdateAsset} />
