@@ -17,7 +17,8 @@ import {
   Table as TableIcon,
   Pencil,
   Check,
-  XCircle
+  XCircle,
+  Info
 } from 'lucide-react';
 import { generateAssetReport } from '../services/geminiService';
 import Papa from 'papaparse';
@@ -48,6 +49,12 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   
   const [assetsToDelete, setAssetsToDelete] = useState<Asset[] | null>(null);
   const [viewingHistory, setViewingHistory] = useState<Asset | null>(null);
+
+  // Validation Helper
+  const isValidSiteID = (id: string | undefined) => {
+    if (!id) return false;
+    return /^[a-zA-Z][a-zA-Z0-9]*$/.test(id);
+  };
 
   // Helper for status colors
   const getStatusClasses = (status: AssetStatus) => {
@@ -119,6 +126,8 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
 
   const handleSaveEdit = async () => {
     if (!editingSerial) return;
+    if (!isValidSiteID(editData.siteID)) return;
+    
     setUpdatingId(editingSerial);
     try {
       await onUpdateAsset(editingSerial, editData);
@@ -330,6 +339,8 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
             <tbody className="divide-y divide-slate-100">
               {currentItems.map(a => {
                 const isEditing = editingSerial === a.serialNumber;
+                const siteIDInvalid = isEditing && editData.siteID !== undefined && !isValidSiteID(editData.siteID);
+
                 return (
                   <tr key={a.serialNumber} className={`hover:bg-slate-50/50 transition-colors ${selectedSerials.has(a.serialNumber) ? 'bg-blue-50/30' : ''}`}>
                     <td className="px-6 py-4 text-center">
@@ -366,12 +377,20 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                     </td>
                     <td className="px-6 py-4">
                       {isEditing ? (
-                        <input 
-                          type="text" 
-                          className="w-full px-2 py-1 border rounded text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                          value={editData.siteID || ''} 
-                          onChange={e => setEditData({...editData, siteID: e.target.value})}
-                        />
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            className={`w-full px-2 py-1 border rounded text-sm focus:ring-1 outline-none transition-colors ${siteIDInvalid ? 'border-red-500 bg-red-50 focus:ring-red-500' : 'focus:ring-blue-500'}`} 
+                            value={editData.siteID || ''} 
+                            onChange={e => setEditData({...editData, siteID: e.target.value})}
+                            title={siteIDInvalid ? "Must start with a letter and be alphanumeric" : ""}
+                          />
+                          {siteIDInvalid && (
+                            <div className="absolute left-0 -bottom-10 z-20 bg-red-600 text-white text-[10px] p-2 rounded shadow-lg flex items-center gap-1 animate-fade-in whitespace-nowrap">
+                              <Info className="h-3 w-3" /> Start with letter, then letters/numbers
+                            </div>
+                          )}
+                        </div>
                       ) : (
                         <span className="font-semibold text-slate-700">{a.siteID}</span>
                       )}
@@ -410,8 +429,9 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                           <>
                             <button 
                               onClick={handleSaveEdit} 
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
-                              title="Save Changes"
+                              disabled={siteIDInvalid}
+                              className={`p-2 rounded-lg transition-all ${siteIDInvalid ? 'text-slate-200 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-50'}`} 
+                              title={siteIDInvalid ? "Fix SiteID to save" : "Save Changes"}
                             >
                               <Check className="h-4 w-4" />
                             </button>
