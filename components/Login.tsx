@@ -6,7 +6,7 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('amplify_asset');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -45,7 +45,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           {error && (
             <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm animate-fade-in">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>Authentication error. Please enter a username.</span>
+              <span>Invalid username. Please use 'amplify_asset'.</span>
             </div>
           )}
 
@@ -98,10 +98,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <div className="mt-8 text-center flex flex-col gap-2">
             <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">
-              Open Access System
+              Authorized Personnel Only
             </p>
             <p className="text-[10px] text-blue-500/60 font-medium">
-              Credentials: admin / password123 (or any username)
+              Credentials: amplify_asset / any password
             </p>
           </div>
         </div>

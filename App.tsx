@@ -34,8 +34,8 @@ function App() {
   };
 
   const handleLogin = async (user: string, _pass: string): Promise<boolean> => {
-    // Permissive login for "Open Web Portal" - accepts any non-empty username
-    if (user.trim().length > 0) {
+    // Restrict login to specifically 'amplify_asset'
+    if (user.trim() === 'amplify_asset') {
       setIsAuthenticated(true);
       sessionStorage.setItem('portal_auth', 'true');
       return true;
