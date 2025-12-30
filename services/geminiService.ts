@@ -26,7 +26,6 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
             properties: {
               model: { type: Type.STRING, description: "The model name or number of the asset" },
               serialNumber: { type: Type.STRING, description: "The serial number" },
-              // Fix: Use siteID instead of siteId to align with Asset interface
               siteID: { type: Type.STRING, description: "The location or Site ID" },
               country: { type: Type.STRING, description: "The country where the asset is located" },
               status: { 
@@ -34,17 +33,13 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
                 description: "The status of the asset. Must be one of: Normal, RMA Requested, RMA Shipped, RMA Eligible, RMA Not Eligible, Deprecated, Unknown" 
               }
             },
-            // Fix: Updated required property list to use siteID
             required: ["model", "serialNumber", "siteID", "country", "status"],
-            // propertyOrdering is recommended for structured JSON output
-            // Fix: Updated propertyOrdering to use siteID
             propertyOrdering: ["model", "serialNumber", "siteID", "country", "status"]
           }
         }
       }
     });
 
-    // Directly access the .text property as per Gemini API guidelines
     if (response.text) {
       return JSON.parse(response.text.trim()) as Partial<Asset>[];
     }
@@ -52,42 +47,5 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
   } catch (error) {
     console.error("Gemini parse error:", error);
     throw new Error("Failed to parse asset data using AI.");
-  }
-};
-
-// Generate a summary report of the assets
-export const generateAssetReport = async (assets: Asset[]): Promise<string> => {
-  if (assets.length === 0) return "No assets to analyze.";
-  
-  // Always initialize with the specific API key from environment
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  try {
-    const dataStr = JSON.stringify(assets.map(a => ({
-      model: a.model,
-      // Fix: Property access should be siteID as per Asset type definition
-      site: a.siteID,
-      country: a.country,
-      status: a.status
-    })));
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `Analyze this asset dataset and provide a brief executive summary suitable for a dashboard.
-      Focus on:
-      1. Total count and breakdown by Country and Site ID.
-      2. Identify any patterns in Status/RMA geographically or by model.
-      3. Actionable recommendations.
-      
-      Keep it concise (max 200 words). Use Markdown for formatting.
-      
-      Dataset:
-      ${dataStr}`
-    });
-
-    // Directly access the .text property as per Gemini API guidelines
-    return response.text || "Analysis failed to generate text.";
-  } catch (error) {
-    console.error("Gemini analysis error:", error);
-    return "Could not generate AI report at this time.";
   }
 };

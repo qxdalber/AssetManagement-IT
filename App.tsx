@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
+import { Dashboard } from './components/Dashboard';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
 import { DatabaseZap, PlusCircle, RotateCw } from 'lucide-react';
 
+type ViewType = 'dashboard' | 'list' | 'add';
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => sessionStorage.getItem('portal_auth') === 'true');
-  const [view, setView] = useState<'list' | 'add'>('list');
+  const [view, setView] = useState<ViewType>('dashboard');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,7 +32,6 @@ function App() {
       }
     } catch (error: any) {
       setIsConnected(false);
-      // Show error on manual refresh or if authenticated
       if (isAuthenticated || isManual) {
         showNotification(error.message || 'DynamoDB Connection failed. Check AWS credentials.', 'error');
       }
@@ -39,7 +41,6 @@ function App() {
   };
 
   const handleLogin = async (user: string, _pass: string): Promise<boolean> => {
-    // Restrict login to specifically 'amplify_asset'
     if (user.trim() === 'amplify_asset') {
       setIsAuthenticated(true);
       sessionStorage.setItem('portal_auth', 'true');
@@ -98,7 +99,6 @@ function App() {
 
   if (!isAuthenticated) return <Login onLogin={handleLogin} />;
   
-  // Initial full-page loader
   if (isLoading && assets.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
@@ -132,7 +132,9 @@ function App() {
           </div>
         )}
 
-        {view === 'list' ? (
+        {view === 'dashboard' && <Dashboard assets={assets} />}
+
+        {view === 'list' && (
           <div className="space-y-6">
             <div className="flex justify-between items-end">
               <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Inventory</h2>
@@ -155,7 +157,9 @@ function App() {
             </div>
             <AssetList assets={assets} onDelete={handleDeleteAssets} onUpdateAsset={handleUpdateAsset} />
           </div>
-        ) : <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />}
+        )}
+
+        {view === 'add' && <AssetForm onAddAssets={handleAddAssets} onCancel={() => setView('list')} />}
       </main>
     </div>
   );

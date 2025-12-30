@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { 
   Search, 
-  Sparkles, 
   Trash2, 
   Loader2, 
   Globe, 
@@ -20,7 +19,6 @@ import {
   XCircle,
   Info
 } from 'lucide-react';
-import { generateAssetReport } from '../services/geminiService';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
@@ -33,8 +31,6 @@ interface AssetListProps {
 export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateAsset }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [analysis, setAnalysis] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedSerials, setSelectedSerials] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -284,31 +280,8 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
               </>
             )}
           </div>
-
-          <button 
-            onClick={async () => { 
-              setIsAnalyzing(true); 
-              try { setAnalysis(await generateAssetReport(filtered)); } 
-              finally { setIsAnalyzing(false); } 
-            }} 
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
-          >
-            {isAnalyzing ? <Loader2 className="animate-spin h-4 w-4" /> : <Sparkles className="h-4 w-4" />} 
-            AI Analysis
-          </button>
         </div>
       </div>
-
-      {analysis && (
-        <div className="p-6 bg-indigo-50 rounded-xl border border-indigo-100 relative animate-fade-in">
-          <button onClick={() => setAnalysis(null)} className="absolute top-4 right-4 text-slate-400 hover:text-indigo-600 transition-colors">
-            <X className="h-5 w-5"/>
-          </button>
-          <div className="prose prose-sm text-slate-700">
-            {analysis.split('\n').map((l, i) => <p key={i}>{l}</p>)}
-          </div>
-        </div>
-      )}
 
       {/* Table Container */}
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
