@@ -18,7 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
             </div>
             <div>
               <h1 className="text-lg font-bold text-slate-900 tracking-tight leading-none">AssetTrack IT</h1>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">Global Portal</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-0.5">External Fulfilment IT Equipment</p>
             </div>
           </div>
           
