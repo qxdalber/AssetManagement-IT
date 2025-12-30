@@ -1,9 +1,9 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, Database, LogOut, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Database, LogOut, BarChart2, BookOpen } from 'lucide-react';
 
 interface HeaderProps {
-  currentView: 'dashboard' | 'list' | 'add';
-  onNavigate: (view: 'dashboard' | 'list' | 'add') => void;
+  currentView: 'dashboard' | 'list' | 'add' | 'manual';
+  onNavigate: (view: 'dashboard' | 'list' | 'add' | 'manual') => void;
   onLogout: () => void;
 }
 
@@ -56,6 +56,17 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onNavigate, onLogou
               >
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">Register</span>
+              </button>
+              <button
+                onClick={() => onNavigate('manual')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  currentView === 'manual'
+                    ? 'bg-blue-50 text-blue-700 shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Help</span>
               </button>
             </nav>
 

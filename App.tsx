@@ -3,12 +3,13 @@ import { Header } from './components/Header';
 import { AssetList } from './components/AssetList';
 import { AssetForm } from './components/AssetForm';
 import { Dashboard } from './components/Dashboard';
+import { UserManual } from './components/UserManual';
 import { Login } from './components/Login';
 import { Asset } from './types';
 import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
 import { DatabaseZap, PlusCircle, RotateCw } from 'lucide-react';
 
-type ViewType = 'dashboard' | 'list' | 'add';
+type ViewType = 'dashboard' | 'list' | 'add' | 'manual';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => sessionStorage.getItem('portal_auth') === 'true');
@@ -133,6 +134,7 @@ function App() {
         )}
 
         {view === 'dashboard' && <Dashboard assets={assets} />}
+        {view === 'manual' && <UserManual />}
 
         {view === 'list' && (
           <div className="space-y-6">

@@ -78,7 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
   return (
     <div className="space-y-8 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">System Overview</h2>
+        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Asset Overview</h2>
         <div className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 flex items-center gap-2">
           <Activity className="h-3 w-3" /> Live Data
         </div>
