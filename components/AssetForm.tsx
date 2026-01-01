@@ -1,4 +1,6 @@
-import { useState, useRef } from 'react';
+
+// Add React import for types and namespace access
+import React, { useState, useRef } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { parseAssetsFromText } from '../services/geminiService';
 // Added Sparkles to the imported icons from lucide-react

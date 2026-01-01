@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Asset, AssetStatus } from '../types';
 import { 
@@ -43,8 +44,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
     const sortedSites = Object.entries(siteCounts).sort((a, b) => b[1] - a[1]);
     const sortedCountries = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
     const sortedModels = Object.entries(modelStatusCounts).sort((a, b) => {
-      const totalA = Object.values(a[1]).reduce((sum, val) => sum + val, 0);
-      const totalB = Object.values(b[1]).reduce((sum, val) => sum + val, 0);
+      // Fix: Explicitly type reduce accumulators and current values to avoid unknown arithmetic errors
+      const totalA = Object.values(a[1]).reduce((sum: number, val: number) => sum + val, 0);
+      const totalB = Object.values(b[1]).reduce((sum: number, val: number) => sum + val, 0);
       return totalB - totalA;
     });
 
@@ -145,7 +147,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
           </h3>
           <div className="space-y-5">
             {Object.entries(stats.statusCounts).map(([status, count]) => {
-              const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+              // Fix: Cast count as number to resolve arithmetic operation type errors
+              const percentage = stats.total > 0 ? ((count as number) / stats.total) * 100 : 0;
               if (count === 0 && status === AssetStatus.Unknown) return null;
               return (
                 <div key={status} className="space-y-2">
@@ -214,7 +217,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {stats.sortedModels.map(([model, statusObj]) => {
-                const totalModel = Object.values(statusObj).reduce((a, b) => a + b, 0);
+                // Fix: Explicitly type reduce arguments to fix 'unknown' type and '+' operator application errors
+                const totalModel = Object.values(statusObj).reduce((sum: number, val: number) => sum + val, 0);
                 return (
                   <tr key={model} className="hover:bg-slate-50/50 transition-colors">
                     <td className="py-4 pr-4 font-bold text-slate-700">{model}</td>

@@ -41,8 +41,17 @@ function App() {
     }
   };
 
-  const handleLogin = async (user: string, _pass: string): Promise<boolean> => {
-    if (user.trim() === 'amplify_asset') {
+  const handleLogin = async (user: string, pass: string): Promise<boolean> => {
+    // Get credentials from environment variables as requested
+    const validUsername = (import.meta as any).env?.VITE_PORTAL_USERNAME || 'amplify_asset';
+    const validPassword = (import.meta as any).env?.VITE_PORTAL_PASSWORD;
+
+    if (!validPassword) {
+      console.warn("Security Warning: VITE_PORTAL_PASSWORD is not set in environment.");
+    }
+
+    // Strict credential check against environment variables
+    if (user.trim() === validUsername && pass === validPassword) {
       setIsAuthenticated(true);
       sessionStorage.setItem('portal_auth', 'true');
       return true;
