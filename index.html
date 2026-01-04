@@ -7,18 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // Polyfills for AWS SDK and other Node-dependent libraries
+      // Stable polyfills for browser environment compatibility
       window.global = window;
-      window.process = window.process || {
-        env: {
-          NODE_ENV: 'development',
-          API_KEY: '' 
-        },
-        nextTick: (fn) => setTimeout(fn, 0),
-        browser: true
-      };
+      window.process = window.process || { env: {} };
       
-      // Basic Buffer polyfill for AWS SDK compatibility
       if (typeof window.Buffer === 'undefined') {
         window.Buffer = {
           from: (data) => new TextEncoder().encode(data),
@@ -49,15 +41,8 @@
     <style>
       body {
         font-family: 'Inter', sans-serif;
-      }
-      .loader {
-        border-top-color: #3B82F6;
-        -webkit-animation: spinner 1.5s linear infinite;
-        animation: spinner 1.5s linear infinite;
-      }
-      @keyframes spinner {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        margin: 0;
+        padding: 0;
       }
       .animate-fade-in {
         animation: fadeIn 0.3s ease-out forwards;

@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { AssetList } from './components/AssetList';
-import { AssetForm } from './components/AssetForm';
-import { Dashboard } from './components/Dashboard';
-import { UserManual } from './components/UserManual';
-import { Login } from './components/Login';
-import { Asset } from './types';
-import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService';
-import { DatabaseZap, PlusCircle, RotateCw } from 'lucide-react';
+import { Header } from './components/Header.tsx';
+import { AssetList } from './components/AssetList.tsx';
+import { AssetForm } from './components/AssetForm.tsx';
+import { Dashboard } from './components/Dashboard.tsx';
+import { UserManual } from './components/UserManual.tsx';
+import { Login } from './components/Login.tsx';
+import { Asset } from './types.ts';
+import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService.ts';
+import { DatabaseZap, RotateCw, PlusCircle } from 'lucide-react';
 
 type ViewType = 'dashboard' | 'list' | 'add' | 'manual';
 
@@ -42,15 +42,10 @@ function App() {
   };
 
   const handleLogin = async (user: string, pass: string): Promise<boolean> => {
-    // Get credentials from environment variables as requested
-    const validUsername = (import.meta as any).env?.VITE_PORTAL_USERNAME || 'amplify_asset';
-    const validPassword = (import.meta as any).env?.VITE_PORTAL_PASSWORD;
+    const env = (import.meta as any).env || {};
+    const validUsername = env.VITE_PORTAL_USERNAME || process.env.VITE_PORTAL_USERNAME || 'amplify_asset';
+    const validPassword = env.VITE_PORTAL_PASSWORD || process.env.VITE_PORTAL_PASSWORD;
 
-    if (!validPassword) {
-      console.warn("Security Warning: VITE_PORTAL_PASSWORD is not set in environment.");
-    }
-
-    // Strict credential check against environment variables
     if (user.trim() === validUsername && pass === validPassword) {
       setIsAuthenticated(true);
       sessionStorage.setItem('portal_auth', 'true');

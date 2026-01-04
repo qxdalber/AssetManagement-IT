@@ -6,10 +6,11 @@ import {
   DeleteCommand,
   BatchWriteCommand
 } from "@aws-sdk/lib-dynamodb";
-import { Asset, AssetStatus, HistoryEntry } from '../types';
+import { Asset, AssetStatus, HistoryEntry } from '../types.ts';
 
 const getEnv = (key: string): string | undefined => {
-  return (import.meta as any).env?.[key];
+  const metaEnv = (import.meta as any).env || {};
+  return metaEnv[key] || process.env[key];
 };
 
 const REGION = getEnv('VITE_ASSET_AWS_REGION') || 'us-east-1';
@@ -89,9 +90,6 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
     await Promise.all(writePromises);
   } catch (e: any) {
     console.error('Bulk Upload Error:', e);
-    if (e.message.includes('key element')) {
-      throw new Error(`Schema Error: Ensure your DynamoDB Table "${TABLE_NAME}" has a Partition Key named exactly "serialNumber" (case-sensitive).`);
-    }
     throw e;
   }
 };
@@ -119,7 +117,6 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
 
     const updatedAsset = { ...asset, ...updates, history: newHistory };
     
-    // If PK (serialNumber) changed, we need to delete the old record and create the new one
     if (updates.serialNumber && updates.serialNumber !== serialNumber) {
       await client.send(new DeleteCommand({
         TableName: TABLE_NAME,
