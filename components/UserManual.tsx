@@ -95,12 +95,12 @@ export const UserManual: React.FC = () => {
             <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
               <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Example Input</p>
               <p className="text-xs font-mono text-indigo-700 italic">
-                "Hi Team, please register 5 units of Latitude 5420 for our London site (LDN01). 
+                "Hi Team, please register 5 units of Latitude 5420 for our London site (LDN01) in the UK. 
                 Serials are ABC1, ABC2, ABC3, ABC4, and ABC5. All are normal status."
               </p>
             </div>
             <p className="text-xs text-slate-500 italic">
-              AI automatically extracts Model, Serial, and SiteID accurately.
+              AI automatically extracts Model, Serial, SiteID, and Country accurately.
             </p>
           </div>
         </section>
@@ -123,7 +123,7 @@ export const UserManual: React.FC = () => {
           <div className="space-y-4">
             <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center font-bold text-blue-400">2</div>
             <h3 className="font-bold">Column Headers</h3>
-            <p className="text-sm text-slate-400">Must include: Model, Serial Number, SiteID</p>
+            <p className="text-sm text-slate-400">Must include: Model, Serial Number, SiteID, Country</p>
           </div>
           <div className="space-y-4">
             <div className="h-10 w-10 bg-white/10 rounded-xl flex items-center justify-center font-bold text-blue-400">3</div>
@@ -151,6 +151,12 @@ export const UserManual: React.FC = () => {
             <p className="text-sm text-amber-900">
               <strong>Status Lifecycle:</strong> Use "RMA Requested" immediately upon failure detection 
               to ensure accurate dashboard tracking.
+            </p>
+          </div>
+          <div className="flex gap-4">
+            <CheckCircle2 className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-900">
+              <strong>Country Tracking:</strong> Ensure Country is specified for regional inventory accuracy.
             </p>
           </div>
           <div className="flex gap-4">

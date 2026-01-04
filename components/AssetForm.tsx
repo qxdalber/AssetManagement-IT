@@ -115,7 +115,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
           : XLSX.utils.sheet_to_json(XLSX.read(evt.target?.result, { type: 'binary' }).Sheets[XLSX.read(evt.target?.result, { type: 'binary' }).SheetNames[0]]);
         
         const assets = data.map(processRowToAsset).filter((a): a is Asset => a !== null);
-        if (assets.length === 0) setError("No valid assets found. Headers must include Model, Serial, SiteID.");
+        if (assets.length === 0) setError("No valid assets found. Headers must include Model, Serial, SiteID, Country.");
         else setBulkPreview(assets);
       } catch (err) { setError("File parsing failed."); }
     };
@@ -211,7 +211,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Requirements</h4>
                   <ul className="space-y-2 text-xs font-medium text-slate-600">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Model, Serial, SiteID columns required</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Model, Serial, SiteID, Country columns required</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> SiteID must start with a letter</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Max 250 assets per batch</li>
                   </ul>
