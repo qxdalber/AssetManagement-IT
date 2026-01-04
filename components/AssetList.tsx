@@ -83,6 +83,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       a.model.toLowerCase().includes(term) || 
       a.serialNumber.toLowerCase().includes(term) || 
       a.siteID.toLowerCase().includes(term) || 
+      a.country.toLowerCase().includes(term) || 
       (a.comments || '').toLowerCase().includes(term);
     return matchesSearch && (statusFilter === 'All' || a.status === statusFilter);
   }), [assets, searchTerm, statusFilter]);
@@ -220,11 +221,11 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       {/* Control Bar */}
       <div className="bg-white p-4 rounded-xl border flex flex-col lg:flex-row gap-4 items-center justify-between shadow-sm">
         <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto">
-          <div className="relative flex-1 md:w-80">
+          <div className="relative flex-1 md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search inventory..." 
+              placeholder="Search model, serial, site or country..." 
               className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
               value={searchTerm} 
               onChange={e => setSearchTerm(e.target.value)} 
