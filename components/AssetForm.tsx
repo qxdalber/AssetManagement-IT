@@ -149,11 +149,11 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Asset Model *</label>
-                    <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="e.g. Dell Latitude 5420" value={manualForm.model} onChange={e => setManualForm({...manualForm, model: e.target.value})} />
+                    <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="e.g. Zebra ZT411" value={manualForm.model} onChange={e => setManualForm({...manualForm, model: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Serial Number *</label>
-                    <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="e.g. ABC123XYZ" value={manualForm.serialNumber} onChange={e => setManualForm({...manualForm, serialNumber: e.target.value})} />
+                    <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="e.g. xxxxxxxxxxxxxxx" value={manualForm.serialNumber} onChange={e => setManualForm({...manualForm, serialNumber: e.target.value})} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -163,7 +163,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                       type="text" 
                       required 
                       className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all ${manualForm.siteID && !isValidSiteID(manualForm.siteID) ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-2 focus:ring-blue-500'}`} 
-                      placeholder="e.g. LDN01" 
+                      placeholder="e.g. XDU5" 
                       value={manualForm.siteID} 
                       onChange={e => setManualForm({...manualForm, siteID: e.target.value})} 
                     />
