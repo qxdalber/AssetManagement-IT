@@ -18,7 +18,8 @@ import {
   Check,
   XCircle,
   Info,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Database
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -289,11 +290,16 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                   <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{h.field} - {new Date(h.timestamp).toLocaleString()}</div>
                   <div className="text-sm font-semibold text-slate-900">
                     {h.field === 'Site Transfer' ? (
-                      <>
-                        <span className="text-slate-400 font-medium">Transfer from </span>
-                        <span className="line-through text-slate-300 mr-2">{h.oldValue}</span>
-                        <span className="text-blue-600 font-black">To {h.newValue}</span>
-                      </>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 text-slate-500 font-medium">
+                          <span>Transfer from</span>
+                          <span className="bg-slate-200 px-1.5 rounded text-slate-600 font-bold">{h.oldValue}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-blue-600 font-black">
+                          <span>To destination</span>
+                          <span className="bg-blue-100 px-1.5 rounded text-blue-700">{h.newValue}</span>
+                        </div>
+                      </div>
                     ) : (
                       <>
                         {h.oldValue !== null && <span className="line-through text-slate-300 mr-2">{h.oldValue}</span>}
@@ -583,37 +589,45 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
         )}
       </div>
 
-      {/* Redesigned Bulk Action Bar (Floating - Pill Style) */}
+      {/* Redesigned Compact Bulk Action Bar (Pill) */}
       {selectedSerials.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in px-4 w-full flex justify-center">
-          <div className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-2xl border border-white/10 flex items-center gap-6">
-            <div className="flex items-center gap-3 border-r border-white/20 pr-4">
-              <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center font-black text-xs">
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-fade-in w-auto">
+          <div className="bg-slate-900/95 backdrop-blur-xl text-white px-4 py-2 rounded-full shadow-2xl border border-white/20 flex items-center gap-4">
+            {/* Asset Count Mini-Badge */}
+            <div className="flex items-center gap-2 pl-1 pr-3 border-r border-white/10">
+              <div className="h-6 w-6 bg-blue-600 rounded-full flex items-center justify-center font-black text-[10px]">
                 {selectedSerials.size}
               </div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Selected</p>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">Selected</span>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Quick Actions */}
+            <div className="flex items-center gap-1">
               <button 
                 onClick={() => setTransferModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all active:scale-95"
+                className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-full transition-all active:scale-95 group"
+                title="Bulk Transfer"
               >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                Transfer
+                <ArrowRightLeft className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold">Transfer</span>
               </button>
+              
               <button 
                 onClick={handleBulkDeleteSubmit}
-                className="bg-red-600/20 hover:bg-red-600/40 text-red-400 px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all border border-red-600/30 active:scale-95"
+                className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/20 rounded-full transition-all active:scale-95 group"
+                title="Bulk Delete"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
+                <Trash2 className="h-4 w-4 text-red-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold">Delete</span>
               </button>
-              <div className="w-px h-6 bg-white/10 mx-1"></div>
+            </div>
+
+            {/* Close Button */}
+            <div className="pl-2 border-l border-white/10">
               <button 
                 onClick={() => setSelectedSerials(new Set())}
-                className="text-slate-400 hover:text-white transition-colors p-1"
-                title="Clear Selection"
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+                title="Cancel Selection"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -624,21 +638,3 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     </div>
   );
 };
-
-// Helper component for empty state
-const Database = ({ className }: { className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M3 5V19A9 3 0 0 0 21 19V5" />
-    <path d="M3 12A9 3 0 0 0 21 12" />
-  </svg>
-);
