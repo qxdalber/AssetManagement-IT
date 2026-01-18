@@ -6,7 +6,7 @@ import { Dashboard } from './components/Dashboard.tsx';
 import { UserManual } from './components/UserManual.tsx';
 import { Login } from './components/Login.tsx';
 import { Asset } from './types.ts';
-import { fetchAssets, addAssets, deleteAssets, updateAsset } from './services/storageService.ts';
+import { fetchAssets, addAssets, deleteAssets, updateAsset, bulkUpdateAssets } from './services/storageService.ts';
 import { DatabaseZap, RotateCw, PlusCircle } from 'lucide-react';
 
 type ViewType = 'dashboard' | 'list' | 'add' | 'manual';
@@ -88,6 +88,27 @@ function App() {
     }
   };
 
+  const handleBulkTransfer = async (serials: string[], newSiteID: string) => {
+    setIsSaving(true);
+    try {
+      await bulkUpdateAssets(serials, { siteID: newSiteID });
+      setAssets(prev => prev.map(a => {
+        if (serials.includes(a.serialNumber)) {
+          // Note: Local state won't show the full history until refresh, but will show new SiteID
+          return { ...a, siteID: newSiteID };
+        }
+        return a;
+      }));
+      showNotification(`Transferred ${serials.length} assets to ${newSiteID}`, 'success');
+      // Refresh to get full history from server
+      loadData();
+    } catch (error: any) {
+      showNotification(error.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDeleteAssets = async (serials: string[]) => {
     setIsSaving(true);
     try {
@@ -124,14 +145,14 @@ function App() {
         </div>
         
         {notification && (
-          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl z-50 border bg-white flex items-center gap-3 animate-fade-in ${notification.type === 'success' ? 'text-emerald-700 border-emerald-100 shadow-emerald-500/10' : 'text-red-700 border-red-100 shadow-red-500/10'}`}>
+          <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 px-6 py-4 rounded-xl shadow-2xl z-[250] border bg-white flex items-center gap-3 animate-fade-in ${notification.type === 'success' ? 'text-emerald-700 border-emerald-100 shadow-emerald-500/10' : 'text-red-700 border-red-100 shadow-red-500/10'}`}>
             <div className={`h-2 w-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
             <span className="font-semibold">{notification.message}</span>
           </div>
         )}
 
         {isSaving && (
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[200] flex flex-col items-center justify-center gap-4">
+          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm z-[300] flex flex-col items-center justify-center gap-4">
             <RotateCw className="h-10 w-10 text-blue-600 animate-spin" />
             <p className="font-extrabold text-slate-800">Syncing with AWS...</p>
           </div>
@@ -161,7 +182,12 @@ function App() {
                  </button>
               </div>
             </div>
-            <AssetList assets={assets} onDelete={handleDeleteAssets} onUpdateAsset={handleUpdateAsset} />
+            <AssetList 
+              assets={assets} 
+              onDelete={handleDeleteAssets} 
+              onUpdateAsset={handleUpdateAsset} 
+              onBulkTransfer={handleBulkTransfer}
+            />
           </div>
         )}
 

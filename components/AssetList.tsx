@@ -17,7 +17,9 @@ import {
   Pencil,
   Check,
   XCircle,
-  Info
+  Info,
+  ArrowRightLeft,
+  LayoutGrid
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -26,15 +28,21 @@ interface AssetListProps {
   assets: Asset[];
   onDelete: (ids: string[]) => void;
   onUpdateAsset: (serialNumber: string, updates: Partial<Asset>) => Promise<void>;
+  onBulkTransfer: (ids: string[], newSiteID: string) => Promise<void>;
 }
 
-export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateAsset }) => {
+export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdateAsset, onBulkTransfer }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedSerials, setSelectedSerials] = useState<Set<string>>(new Set());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   
+  // Modal states
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [newSiteID, setNewSiteID] = useState('');
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
+
   // Inline Edit State
   const [editingSerial, setEditingSerial] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<Asset>>({});
@@ -135,6 +143,24 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
     }
   };
 
+  const handleBulkTransferSubmit = async () => {
+    if (!isValidSiteID(newSiteID)) return;
+    setIsProcessingBulk(true);
+    try {
+      await onBulkTransfer(Array.from(selectedSerials), newSiteID);
+      setSelectedSerials(new Set());
+      setTransferModalOpen(false);
+      setNewSiteID('');
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  };
+
+  const handleBulkDeleteSubmit = () => {
+    const targets = assets.filter(a => selectedSerials.has(a.serialNumber));
+    setAssetsToDelete(targets);
+  };
+
   const prepareExportData = () => {
     return filtered.map(a => ({
       'Model': a.model,
@@ -173,9 +199,64 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Transfer Modal */}
+      {transferModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl animate-fade-in">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ArrowRightLeft className="h-5 w-5 text-blue-600" /> Bulk Site Transfer
+              </h3>
+              <button onClick={() => setTransferModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><X className="h-5 w-5"/></button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                <p className="text-sm text-blue-700 font-medium leading-relaxed">
+                  You are transferring <span className="font-black underline">{selectedSerials.size}</span> selected assets 
+                  to a new destination. This will be recorded in the audit history of each asset.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Destination SiteID *</label>
+                <input 
+                  type="text" 
+                  autoFocus
+                  className={`w-full px-6 py-4 text-xl font-bold bg-slate-50 border rounded-2xl outline-none transition-all ${newSiteID && !isValidSiteID(newSiteID) ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus:ring-2 focus:ring-blue-500'}`} 
+                  placeholder="e.g. PHX02" 
+                  value={newSiteID}
+                  onChange={e => setNewSiteID(e.target.value)}
+                />
+                {!isValidSiteID(newSiteID) && newSiteID && (
+                  <p className="text-[10px] text-red-500 font-bold uppercase ml-1">Invalid SiteID format (must start with a letter)</p>
+                )}
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <button 
+                  disabled={!isValidSiteID(newSiteID) || isProcessingBulk}
+                  onClick={handleBulkTransferSubmit}
+                  className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
+                >
+                  {isProcessingBulk ? <Loader2 className="animate-spin h-5 w-5" /> : <Check className="h-5 w-5" />}
+                  Confirm Transfer
+                </button>
+                <button 
+                  onClick={() => setTransferModalOpen(false)}
+                  className="px-8 py-4 border border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors font-bold text-slate-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {assetsToDelete && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-red-600 mb-4 flex items-center gap-2"><AlertTriangle /> Delete Assets?</h3>
             <p className="text-sm text-slate-600 mb-6">Permanently remove {assetsToDelete.length} assets from DynamoDB?</p>
@@ -285,7 +366,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       </div>
 
       {/* Table Container */}
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden mb-24">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left border-collapse">
             <thead className="bg-slate-50 border-b text-[10px] font-bold uppercase text-slate-500 tracking-wider">
@@ -316,7 +397,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 const siteIDInvalid = isEditing && editData.siteID !== undefined && !isValidSiteID(editData.siteID);
 
                 return (
-                  <tr key={a.serialNumber} className={`hover:bg-slate-50/50 transition-colors ${selectedSerials.has(a.serialNumber) ? 'bg-blue-50/30' : ''}`}>
+                  <tr key={a.serialNumber} className={`hover:bg-slate-50/50 transition-colors ${selectedSerials.has(a.serialNumber) ? 'bg-blue-50/30 font-semibold' : ''}`}>
                     <td className="px-6 py-4 text-center">
                       <input 
                         type="checkbox" 
@@ -492,6 +573,47 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
           </div>
         )}
       </div>
+
+      {/* Bulk Action Bar (Floating) */}
+      {selectedSerials.size > 0 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-[100] animate-fade-in">
+          <div className="bg-slate-900 text-white p-4 rounded-3xl shadow-2xl shadow-blue-900/40 border border-white/10 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 px-2">
+              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
+                {selectedSerials.size}
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Selected</p>
+                <p className="text-sm font-bold">Assets targeted</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setTransferModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 transition-all active:scale-95"
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                Transfer Site
+              </button>
+              <button 
+                onClick={handleBulkDeleteSubmit}
+                className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 transition-all border border-red-600/30 active:scale-95"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </button>
+              <button 
+                onClick={() => setSelectedSerials(new Set())}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-400 p-3 rounded-2xl transition-all"
+                title="Clear Selection"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -134,6 +134,40 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
   }
 };
 
+export const bulkUpdateAssets = async (serials: string[], updates: Partial<Asset>): Promise<void> => {
+  try {
+    const client = getDocClient();
+    const currentAssets = await fetchAssets();
+    const targets = currentAssets.filter(a => serials.includes(a.serialNumber));
+
+    const updatePromises = targets.map(async (asset) => {
+      const newHistory: HistoryEntry[] = [...(asset.history || [])];
+      
+      Object.entries(updates).forEach(([key, value]) => {
+        if (asset[key as keyof Asset] !== value && !['history', 'createdAt'].includes(key)) {
+          newHistory.push({
+            timestamp: Date.now(),
+            field: key,
+            oldValue: asset[key as keyof Asset],
+            newValue: value
+          });
+        }
+      });
+
+      const updatedAsset = { ...asset, ...updates, history: newHistory };
+      return client.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: updatedAsset
+      }));
+    });
+
+    await Promise.all(updatePromises);
+  } catch (e: any) {
+    console.error('Bulk Update Error:', e);
+    throw e;
+  }
+};
+
 export const deleteAssets = async (assetsToDelete: Asset[]): Promise<void> => {
   try {
     const client = getDocClient();
