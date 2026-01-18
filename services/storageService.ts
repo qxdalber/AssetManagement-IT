@@ -108,7 +108,7 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
       if (asset[field] !== value && !['history', 'createdAt'].includes(key)) {
         newHistory.push({
           timestamp: Date.now(),
-          field: key,
+          field: key === 'siteID' ? 'Site Transfer' : key,
           oldValue: asset[field],
           newValue: value
         });
@@ -147,7 +147,7 @@ export const bulkUpdateAssets = async (serials: string[], updates: Partial<Asset
         if (asset[key as keyof Asset] !== value && !['history', 'createdAt'].includes(key)) {
           newHistory.push({
             timestamp: Date.now(),
-            field: key,
+            field: key === 'siteID' ? 'Site Transfer' : key,
             oldValue: asset[key as keyof Asset],
             newValue: value
           });

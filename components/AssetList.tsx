@@ -287,9 +287,19 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
               {(viewingHistory.history || []).slice().reverse().map((h, i) => (
                 <div key={i} className="p-3 border rounded-lg bg-slate-50">
                   <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{h.field} - {new Date(h.timestamp).toLocaleString()}</div>
-                  <div className="text-sm font-semibold">
-                    {h.oldValue !== null && <span className="line-through text-slate-300 mr-2">{h.oldValue}</span>}
-                    {h.newValue}
+                  <div className="text-sm font-semibold text-slate-900">
+                    {h.field === 'Site Transfer' ? (
+                      <>
+                        <span className="text-slate-400 font-medium">Transfer from </span>
+                        <span className="line-through text-slate-300 mr-2">{h.oldValue}</span>
+                        <span className="text-blue-600 font-black">To {h.newValue}</span>
+                      </>
+                    ) : (
+                      <>
+                        {h.oldValue !== null && <span className="line-through text-slate-300 mr-2">{h.oldValue}</span>}
+                        {h.newValue}
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -573,41 +583,39 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
         )}
       </div>
 
-      {/* Bulk Action Bar (Floating) */}
+      {/* Redesigned Bulk Action Bar (Floating - Pill Style) */}
       {selectedSerials.size > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-[100] animate-fade-in">
-          <div className="bg-slate-900/90 backdrop-blur-md text-white p-4 rounded-3xl shadow-2xl shadow-blue-900/40 border border-white/10 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 px-2">
-              <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-fade-in px-4 w-full flex justify-center">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-2xl border border-white/10 flex items-center gap-6">
+            <div className="flex items-center gap-3 border-r border-white/20 pr-4">
+              <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center font-black text-xs">
                 {selectedSerials.size}
               </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Selected</p>
-                <p className="text-sm font-bold">Assets targeted</p>
-              </div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Selected</p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={() => setTransferModalOpen(true)}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 transition-all active:scale-95"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all active:scale-95"
               >
-                <ArrowRightLeft className="h-4 w-4" />
-                Transfer Site
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                Transfer
               </button>
               <button 
                 onClick={handleBulkDeleteSubmit}
-                className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-6 py-3 rounded-2xl text-sm font-black flex items-center gap-2 transition-all border border-red-600/30 active:scale-95"
+                className="bg-red-600/20 hover:bg-red-600/40 text-red-400 px-5 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all border border-red-600/30 active:scale-95"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
                 Delete
               </button>
+              <div className="w-px h-6 bg-white/10 mx-1"></div>
               <button 
                 onClick={() => setSelectedSerials(new Set())}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-400 p-3 rounded-2xl transition-all"
+                className="text-slate-400 hover:text-white transition-colors p-1"
                 title="Clear Selection"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
