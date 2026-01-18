@@ -18,8 +18,7 @@ import {
   Check,
   XCircle,
   Info,
-  ArrowRightLeft,
-  LayoutGrid
+  ArrowRightLeft
 } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -99,7 +98,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filtered.slice(startIndex, startIndex + itemsPerPage);
-  const allSelected = currentItems.length > 0 && currentItems.every(a => selectedSerials.has(a.serialNumber));
+  const allOnPageSelected = currentItems.length > 0 && currentItems.every(a => selectedSerials.has(a.serialNumber));
 
   const toggleSelect = (s: string) => {
     const next = new Set(selectedSerials);
@@ -300,14 +299,14 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       )}
 
       {/* Control Bar */}
-      <div className="bg-white p-4 rounded-xl border flex flex-col lg:flex-row gap-4 items-center justify-between shadow-sm">
+      <div className="bg-white p-4 rounded-xl border flex flex-col lg:flex-row gap-4 items-center justify-between shadow-sm sticky top-[65px] z-40">
         <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto">
           <div className="relative flex-1 md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search model, serial, site or country..." 
-              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+              placeholder="Search by site, serial, or model..." 
+              className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none shadow-inner bg-slate-50/50" 
               value={searchTerm} 
               onChange={e => setSearchTerm(e.target.value)} 
             />
@@ -374,7 +373,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
                 <th className="px-6 py-4 w-10 text-center">
                   <input 
                     type="checkbox" 
-                    checked={allSelected} 
+                    checked={allOnPageSelected} 
                     onChange={(e) => { 
                       const next = new Set(selectedSerials); 
                       currentItems.forEach(a => e.target.checked ? next.add(a.serialNumber) : next.delete(a.serialNumber)); 
@@ -577,7 +576,7 @@ export const AssetList: React.FC<AssetListProps> = ({ assets, onDelete, onUpdate
       {/* Bulk Action Bar (Floating) */}
       {selectedSerials.size > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 z-[100] animate-fade-in">
-          <div className="bg-slate-900 text-white p-4 rounded-3xl shadow-2xl shadow-blue-900/40 border border-white/10 flex items-center justify-between gap-4">
+          <div className="bg-slate-900/90 backdrop-blur-md text-white p-4 rounded-3xl shadow-2xl shadow-blue-900/40 border border-white/10 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 px-2">
               <div className="h-10 w-10 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-lg">
                 {selectedSerials.size}
