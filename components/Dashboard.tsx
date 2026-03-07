@@ -56,6 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case AssetStatus.Normal: return 'bg-emerald-500';
+      case AssetStatus.Damaged: return 'bg-red-500';
       case AssetStatus.RMARequested: return 'bg-amber-500';
       case AssetStatus.RMAShipped: return 'bg-blue-500';
       case AssetStatus.RMAEligible: return 'bg-indigo-500';
@@ -68,6 +69,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ assets }) => {
   const getStatusTextColor = (status: string) => {
     switch (status) {
       case AssetStatus.Normal: return 'text-emerald-600';
+      case AssetStatus.Damaged: return 'text-red-600';
       case AssetStatus.RMARequested: return 'text-amber-600';
       case AssetStatus.RMAShipped: return 'text-blue-600';
       case AssetStatus.RMAEligible: return 'text-indigo-600';

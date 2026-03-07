@@ -18,6 +18,7 @@ export interface Asset {
 
 export enum AssetStatus {
   Normal = 'Normal',
+  Damaged = 'Damaged',
   RMARequested = 'RMA Requested',
   RMAShipped = 'RMA Shipped',
   RMAEligible = 'RMA Eligible',

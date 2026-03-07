@@ -156,7 +156,7 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                     <input type="text" required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono" placeholder="e.g. xxxxxxxxxxxxxxx" value={manualForm.serialNumber} onChange={e => setManualForm({...manualForm, serialNumber: e.target.value})} />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">SiteID *</label>
                     <input 
@@ -171,6 +171,16 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Country</label>
                     <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="e.g. UK" value={manualForm.country} onChange={e => setManualForm({...manualForm, country: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Initial Status</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
+                      value={manualForm.status}
+                      onChange={e => setManualForm({...manualForm, status: e.target.value as AssetStatus})}
+                    >
+                      {Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-2">

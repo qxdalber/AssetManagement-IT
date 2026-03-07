@@ -12,7 +12,7 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
       The text may contain multiple assets. 
       Extract or infer the Country (e.g., "Germany", "UK", "USA") for each asset.
       Infer the Status from the context if possible.
-      Valid statuses are: "Normal", "RMA Requested", "RMA Shipped", "RMA Eligible", "RMA Not Eligible", "Deprecated", "Unknown".
+      Valid statuses are: "Normal", "Damaged", "RMA Requested", "RMA Shipped", "RMA Eligible", "RMA Not Eligible", "Deprecated", "Unknown".
       If no specific status context is found, default to "Normal".
       
       Text to process:
@@ -30,7 +30,7 @@ export const parseAssetsFromText = async (text: string): Promise<Partial<Asset>[
               country: { type: Type.STRING, description: "The country where the asset is located" },
               status: { 
                 type: Type.STRING, 
-                description: "The status of the asset. Must be one of: Normal, RMA Requested, RMA Shipped, RMA Eligible, RMA Not Eligible, Deprecated, Unknown" 
+                description: "The status of the asset. Must be one of: Normal, Damaged, RMA Requested, RMA Shipped, RMA Eligible, RMA Not Eligible, Deprecated, Unknown" 
               }
             },
             required: ["model", "serialNumber", "siteID", "country", "status"],
