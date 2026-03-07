@@ -86,17 +86,26 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
     const site = normalized['siteid'] || normalized['site'];
     const country = normalized['country'] || normalized['region'];
     const comments = normalized['comments'] || normalized['rmastatus'] || normalized['notes'];
+    const statusRaw = normalized['status'] || normalized['assetstatus'];
 
     if (model && serial && site) {
       const siteIDStr = String(site).trim();
       if (isValidSiteID(siteIDStr)) {
+        // Validate status if provided
+        let finalStatus = AssetStatus.Normal;
+        if (statusRaw) {
+          const s = String(statusRaw).trim();
+          const match = Object.values(AssetStatus).find(v => v.toLowerCase() === s.toLowerCase());
+          if (match) finalStatus = match as AssetStatus;
+        }
+
         return {
           serialNumber: String(serial).trim(),
           model: String(model).trim(),
           siteID: siteIDStr,
           country: country ? String(country).trim() : '',
           comments: comments ? String(comments).trim() : '',
-          status: AssetStatus.Normal,
+          status: finalStatus,
           createdAt: Date.now()
         };
       }
@@ -221,7 +230,8 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                 <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Requirements</h4>
                   <ul className="space-y-2 text-xs font-medium text-slate-600">
-                    <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Model, Serial, SiteID, Country columns required</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Model, Serial, SiteID, Country required</li>
+                    <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Status column optional (defaults to Normal)</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> SiteID must start with a letter</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Max 250 assets per batch</li>
                   </ul>
@@ -287,7 +297,8 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                         <tr>
                           <th className="px-4 py-3 font-black text-slate-400 uppercase tracking-widest border-r">Model</th>
                           <th className="px-4 py-3 font-black text-slate-400 uppercase tracking-widest border-r">Serial</th>
-                          <th className="px-4 py-3 font-black text-slate-400 uppercase tracking-widest">Site</th>
+                          <th className="px-4 py-3 font-black text-slate-400 uppercase tracking-widest border-r">Site</th>
+                          <th className="px-4 py-3 font-black text-slate-400 uppercase tracking-widest">Status</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -295,7 +306,16 @@ export const AssetForm: React.FC<AssetFormProps> = ({ onAddAssets, onCancel }) =
                           <tr key={i} className="hover:bg-slate-50 transition-colors group">
                             <td className="px-4 py-3 font-bold text-slate-700 border-r">{a.model}</td>
                             <td className="px-4 py-3 font-mono text-[10px] text-blue-600 border-r">{a.serialNumber}</td>
-                            <td className="px-4 py-3 font-black text-slate-900">{a.siteID}</td>
+                            <td className="px-4 py-3 font-black text-slate-900 border-r">{a.siteID}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                                a.status === AssetStatus.Normal ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                a.status === AssetStatus.Damaged ? 'bg-red-50 text-red-700 border-red-100' :
+                                'bg-slate-50 text-slate-600 border-slate-100'
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
