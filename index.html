@@ -10,11 +10,34 @@
       // Stable polyfills for browser environment compatibility
       window.global = window;
       window.process = window.process || { env: {} };
+      if (!window.process.nextTick) {
+        window.process.nextTick = (fn) => setTimeout(fn, 0);
+      }
       
       if (typeof window.Buffer === 'undefined') {
         window.Buffer = {
-          from: (data) => new TextEncoder().encode(data),
-          isBuffer: () => false
+          from: (data, encoding) => {
+            if (typeof data === 'string') return new TextEncoder().encode(data);
+            if (data instanceof ArrayBuffer) return new Uint8Array(data);
+            if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+            return new Uint8Array(data);
+          },
+          alloc: (size) => new Uint8Array(size),
+          byteLength: (data) => {
+            if (typeof data === 'string') return new TextEncoder().encode(data).length;
+            return data.length;
+          },
+          concat: (list) => {
+            const totalLength = list.reduce((acc, curr) => acc + curr.length, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const buf of list) {
+              result.set(buf, offset);
+              offset += buf.length;
+            }
+            return result;
+          },
+          isBuffer: (obj) => obj instanceof Uint8Array
         };
       }
     </script>

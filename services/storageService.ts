@@ -4,7 +4,8 @@ import {
   ScanCommand, 
   PutCommand, 
   DeleteCommand,
-  BatchWriteCommand
+  BatchWriteCommand,
+  GetCommand
 } from "@aws-sdk/lib-dynamodb";
 import { Asset, AssetStatus, HistoryEntry } from '../types.ts';
 
@@ -45,9 +46,20 @@ const getDocClient = () => {
 export const fetchAssets = async (): Promise<Asset[]> => {
   try {
     const client = getDocClient();
-    const command = new ScanCommand({ TableName: TABLE_NAME });
-    const response = await client.send(command);
-    return (response.Items || []).map((item: any) => ({
+    let allItems: any[] = [];
+    let lastEvaluatedKey: Record<string, any> | undefined = undefined;
+
+    do {
+      const command: ScanCommand = new ScanCommand({ 
+        TableName: TABLE_NAME,
+        ExclusiveStartKey: lastEvaluatedKey
+      });
+      const response = await client.send(command) as any;
+      allItems = allItems.concat(response.Items || []);
+      lastEvaluatedKey = response.LastEvaluatedKey;
+    } while (lastEvaluatedKey);
+
+    return allItems.map((item: any) => ({
       ...item,
       status: item.status || AssetStatus.Normal,
       history: item.history || []
@@ -94,11 +106,18 @@ export const addAssets = async (newAssets: Asset[]): Promise<void> => {
   }
 };
 
-export const updateAsset = async (serialNumber: string, updates: Partial<Asset>): Promise<void> => {
+export const updateAsset = async (serialNumber: string, updates: Partial<Asset>): Promise<Asset> => {
   try {
     const client = getDocClient();
-    const currentAssets = await fetchAssets(); 
-    const asset = currentAssets.find(a => a.serialNumber === serialNumber);
+    
+    // Use GetCommand for efficiency and consistency
+    const getCommand = new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { serialNumber },
+      ConsistentRead: true
+    });
+    
+    const { Item: asset } = await client.send(getCommand);
     
     if (!asset) throw new Error("Asset not found.");
 
@@ -115,30 +134,41 @@ export const updateAsset = async (serialNumber: string, updates: Partial<Asset>)
       }
     });
 
-    const updatedAsset = { ...asset, ...updates, history: newHistory };
+    const updatedAsset = { ...asset, ...updates, history: newHistory } as Asset;
     
+    // If serial number changed, we need to delete the old one and put the new one
     if (updates.serialNumber && updates.serialNumber !== serialNumber) {
+      // Put new first to ensure we don't lose data if delete succeeds but put fails
+      await client.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: updatedAsset
+      }));
+      
       await client.send(new DeleteCommand({
         TableName: TABLE_NAME,
         Key: { serialNumber }
       }));
+    } else {
+      await client.send(new PutCommand({
+        TableName: TABLE_NAME,
+        Item: updatedAsset
+      }));
     }
 
-    await client.send(new PutCommand({
-      TableName: TABLE_NAME,
-      Item: updatedAsset
-    }));
+    return updatedAsset;
   } catch (e: any) {
     console.error('Update Error:', e);
     throw e;
   }
 };
 
-export const bulkUpdateAssets = async (serials: string[], updates: Partial<Asset>): Promise<void> => {
+export const bulkUpdateAssets = async (serials: string[], updates: Partial<Asset>): Promise<Asset[]> => {
   try {
     const client = getDocClient();
     const currentAssets = await fetchAssets();
     const targets = currentAssets.filter(a => serials.includes(a.serialNumber));
+
+    const updatedAssets: Asset[] = [];
 
     const updatePromises = targets.map(async (asset) => {
       const newHistory: HistoryEntry[] = [...(asset.history || [])];
@@ -154,14 +184,16 @@ export const bulkUpdateAssets = async (serials: string[], updates: Partial<Asset
         }
       });
 
-      const updatedAsset = { ...asset, ...updates, history: newHistory };
-      return client.send(new PutCommand({
+      const updatedAsset = { ...asset, ...updates, history: newHistory } as Asset;
+      await client.send(new PutCommand({
         TableName: TABLE_NAME,
         Item: updatedAsset
       }));
+      updatedAssets.push(updatedAsset);
     });
 
     await Promise.all(updatePromises);
+    return updatedAssets;
   } catch (e: any) {
     console.error('Bulk Update Error:', e);
     throw e;

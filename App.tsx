@@ -75,10 +75,10 @@ function App() {
 
   const handleUpdateAsset = async (serialNumber: string, updates: Partial<Asset>) => {
     try {
-      await updateAsset(serialNumber, updates);
+      const updated = await updateAsset(serialNumber, updates);
       setAssets(prev => prev.map(a => {
         if (a.serialNumber === serialNumber) {
-          return { ...a, ...updates };
+          return updated;
         }
         return a;
       }));
@@ -91,17 +91,13 @@ function App() {
   const handleBulkTransfer = async (serials: string[], newSiteID: string) => {
     setIsSaving(true);
     try {
-      await bulkUpdateAssets(serials, { siteID: newSiteID });
+      const updatedAssets = await bulkUpdateAssets(serials, { siteID: newSiteID });
       setAssets(prev => prev.map(a => {
-        if (serials.includes(a.serialNumber)) {
-          // Note: Local state won't show the full history until refresh, but will show new SiteID
-          return { ...a, siteID: newSiteID };
-        }
-        return a;
+        const updated = updatedAssets.find(u => u.serialNumber === a.serialNumber);
+        return updated || a;
       }));
       showNotification(`Transferred ${serials.length} assets to ${newSiteID}`, 'success');
-      // Refresh to get full history from server
-      loadData();
+      // No need to call loadData() here anymore as we updated state with real data
     } catch (error: any) {
       showNotification(error.message, 'error');
     } finally {
